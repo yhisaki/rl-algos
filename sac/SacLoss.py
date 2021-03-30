@@ -38,5 +38,5 @@ def CalcPolicyLoss(batch: Transition,
 def CalcTemperatureLoss(batch: Transition,
                         policy: GaussianPolicy, alpha, target_entropy):
   _, action_log_prob = policy.sample(batch.state)
-  alpha_loss = - (alpha.exp() * (action_log_prob.detach() + target_entropy)).mean()
+  alpha_loss = - (alpha.exp() * (action_log_prob.to('cpu').detach() + target_entropy)).mean()
   return alpha_loss

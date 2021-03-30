@@ -9,7 +9,7 @@ EPSILON = 1e-6
 
 
 class GaussianPolicy(nn.Module):
-  def __init__(self, dim_state: int, dim_action: int, hidden_dim: int,
+  def __init__(self, device, dim_state: int, dim_action: int, hidden_dim: int,
                action_high: np.ndarray, action_low: np.ndarray, log_std_bounds=(2, -20)):
     super(GaussianPolicy, self).__init__()
     self.dim_state_ = dim_state
@@ -19,8 +19,8 @@ class GaussianPolicy(nn.Module):
     self.log_std_max, self.log_std_min = log_std_bounds
 
     # actionをaction_high > a > action_lowにおさめるため
-    self.action_bias_ = torch.FloatTensor((action_high + action_low) / 2.0)
-    self.action_scale_ = torch.FloatTensor((action_high - action_low) / 2.0)
+    self.action_bias_ = torch.FloatTensor((action_high + action_low) / 2.0).to(device)
+    self.action_scale_ = torch.FloatTensor((action_high - action_low) / 2.0).to(device)
 
     shared_layers = [
         nn.Linear(dim_state, hidden_dim),
@@ -32,6 +32,9 @@ class GaussianPolicy(nn.Module):
     self.shared_layers_ = nn.Sequential(*shared_layers)
     self.mean_layer_ = nn.Linear(hidden_dim, dim_action)
     self.log_std_layer_ = nn.Linear(hidden_dim, dim_action)
+
+    self.to(device)
+    self.dev_ = device
 
   def forward(self, state):
     out = self.shared_layers_(state)
@@ -53,6 +56,8 @@ class GaussianPolicy(nn.Module):
     if isinstance(state, np.ndarray) and (state.ndim == 1):
       change_numpy_and_1d = True
       state = torch.Tensor([state])
+    
+    state = state.to(self.dev_)
     mean, log_std = self.forward(state)
     std = log_std.exp()  # 0 < std
     normal = Normal(mean, std)
