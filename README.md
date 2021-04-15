@@ -1,4 +1,4 @@
-# ReinforcementLearning
+# Reinforcement Learning Research Library
 
 ## 実行結果
 
