@@ -1,0 +1,15 @@
+{
+  "env_name": "BipedalWalker-v3",
+  "episodes_num": 400,
+  "enable_gpu": true,
+  "policy": {
+    "type": "GaussianPolicy",
+    "optimizer": {
+      "type": "Adam",
+      "learning_rate": 1E-3
+    }
+  },
+  "q_function": {
+    
+  }
+}

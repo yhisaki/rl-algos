@@ -5,9 +5,6 @@ from torch.distributions import Normal
 import torch.nn.functional as F
 
 
-EPSILON = 1e-6
-
-
 class GaussianPolicy(nn.Module):
   def __init__(self, device, dim_state: int, dim_action: int, hidden_dim: int,
                action_high: np.ndarray, action_low: np.ndarray, log_std_bounds=(2, -20)):
@@ -26,6 +23,8 @@ class GaussianPolicy(nn.Module):
         nn.Linear(dim_state, hidden_dim),
         nn.ReLU(),
         nn.Linear(hidden_dim, hidden_dim),
+        # nn.ReLU(),
+        # nn.Linear(hidden_dim, hidden_dim),
         nn.ReLU()
     ]
 
