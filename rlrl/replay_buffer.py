@@ -1,12 +1,11 @@
 """ReplayBufferの抽象クラス．
-[pfrl.replay_buffer.AbstractReplayBuffer](https://github.com/pfnet/pfrl/blob/0639d2f4d0317a01e85978fa5c0c60a04f0cff33/pfrl/replay_buffer.py#L15)をトレースしている
+  [pfrl.replay_buffer.AbstractReplayBuffer]
+  (https://github.com/pfnet/pfrl/blob/0639d2f4d0317a01e85978fa5c0c60a04f0cff33/pfrl/replay_buffer.py#L15)
+  をトレースしている
 
 """
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 from typing import Optional
-
-import numpy as np
-import torch
 
 
 class AbstractReplayBuffer(object, metaclass=ABCMeta):

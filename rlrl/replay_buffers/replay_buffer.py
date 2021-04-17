@@ -2,7 +2,6 @@ import collections
 import pickle
 from typing import Optional
 
-import rlrl
 from rlrl.collections.random_access_queue import RandomAccessQueue
 from rlrl import replay_buffer
 
