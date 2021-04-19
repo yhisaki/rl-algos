@@ -1,0 +1,9 @@
+{
+  "env_name": "BipedalWalker-v3",
+  "episodes_num": 400,
+  "hidden_dim": 256,
+  "t_init": 500,
+  "replay_buffer_capacity": 1E+6,
+  "batch_size": 10,
+  "gamma": 0.99
+}
