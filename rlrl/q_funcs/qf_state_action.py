@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from rlrl.utils import EnvInfo
 
 
 class QFStateAction(nn.Module):
@@ -12,10 +13,10 @@ class QFStateAction(nn.Module):
       nn ([type]): [description]
   """
 
-  def __init__(self, dim_state: int, dim_action: int, hidden_dim: int):
+  def __init__(self, env_info: EnvInfo, hidden_dim: int):
     super(QFStateAction, self).__init__()
-    self.dim_state_ = dim_state
-    self.dim_action_ = dim_action
+    self.dim_state_ = env_info.dim_state
+    self.dim_action_ = env_info.dim_action
 
     layers = [
         nn.Linear(self.dim_state_ + self.dim_action_, hidden_dim),

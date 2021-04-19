@@ -1,9 +1,10 @@
 {
-  "env_name": "MountainCar-v0",
+  "env_name": "MountainCarContinuous-v0",
   "episodes_num": 200,
   "hidden_dim": 256,
   "t_init": 5E+3,
   "replay_buffer_capacity": 1E+6,
   "batch_size": 256,
-  "gamma": 0.99
+  "gamma": 0.99,
+  "lr": 1E-3
 }

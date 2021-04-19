@@ -17,14 +17,7 @@ class AbstractReplayBuffer(object, metaclass=ABCMeta):
   @abstractmethod
   def append(
       self,
-      state,
-      action,
-      reward,
-      next_state=None,
-      next_action=None,
-      is_state_terminal=False,
-      env_id=0,
-      **kwargs
+      transition
   ):
     """Append a transition to this replay buffer.
     Args:
@@ -41,7 +34,7 @@ class AbstractReplayBuffer(object, metaclass=ABCMeta):
     raise NotImplementedError
 
   @abstractmethod
-  def sample(self, n):
+  def sample(self, n, **kwargs):
     """Sample n unique transitions from this replay buffer.
     Args:
         n (int): Number of transitions to sample.
@@ -82,19 +75,3 @@ class AbstractReplayBuffer(object, metaclass=ABCMeta):
     """
     raise NotImplementedError
 
-  @abstractmethod
-  def stop_current_episode(self, env_id=0):
-    """Notify the buffer that the current episode is interrupted.
-    You may want to interrupt the current episode and start a new one
-    before observing a terminal state. This is typical in continuing envs.
-    In such cases, you need to call this method before appending a new
-    transition so that the buffer will treat it as an initial transition of
-    a new episode.
-    This method should not be called after an episode whose termination is
-    already notified by appending a transition with is_state_terminal=True.
-    Args:
-        env_id (object): Object that is unique to each env. It indicates
-            which env's current episode is interrupted in multi-env
-            training.
-    """
-    raise NotImplementedError
