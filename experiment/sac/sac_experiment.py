@@ -10,13 +10,13 @@ from rlrl.policies import GaussianPolicy
 from rlrl.utils import (
     set_global_torch_device,
     get_global_torch_device,
+    set_global_seed,
     get_env_info,
     batch_shaping
 )
 from rlrl.agents.sac_agent import *
 
-
-gym.logger.set_level(40)
+# gym.logger.set_level(40)
 
 
 if __name__ == '__main__':
@@ -32,23 +32,27 @@ if __name__ == '__main__':
   env_info = get_env_info(env)
   state = env.reset()
 
+  set_global_seed(env, 5)
+
+  # set deviceh
+  set_global_torch_device('cuda')
+
   # Replay Memory
   D = ReplayBuffer(j["replay_buffer_capacity"])
 
   # policy
-  policy = GaussianPolicy(env_info, j["hidden_dim"])
+  policy = GaussianPolicy(env_info, j["hidden_dim"]).to(get_global_torch_device())
   policyOptimizer = Adam(policy.parameters(), lr=j["lr"])
 
   # QFunction
-  cdq = ClippedDoubleQF(QFStateAction, env_info, j["hidden_dim"])
+  cdq = ClippedDoubleQF(QFStateAction, env_info, j["hidden_dim"]).to(get_global_torch_device())
   cdq_t = copy.deepcopy(cdq)
   qfOptimizer = Adam(cdq.parameters(), lr=j["lr"])
-  # set deviceh
-  set_global_torch_device('cuda')
+
 
   # alpha
   log_alpha = torch.zeros(1, requires_grad=True)
-  alpha = log_alpha.exp()
+  alpha = log_alpha.exp().to(get_global_torch_device())
   alphaOptimizer = Adam([log_alpha], lr=j["lr"])
   target_entropy = - env_info.dim_action
 
@@ -56,9 +60,11 @@ if __name__ == '__main__':
   total_step = 0
 
   for epi in range(j["episodes_num"]):
+    env.seed(epi)
     state = env.reset()
     episode_reward = 0
     episode_step = 0
+    action_log_prob_total = 0
 
     while True:
 
@@ -68,17 +74,20 @@ if __name__ == '__main__':
       if len(D) < j["t_init"]:
         action = env.action_space.sample()
       else:
-        action = policy.sample_action(state)
+        with torch.no_grad():
+          action, action_log_prob = policy.sample(torch.cuda.FloatTensor([state]))
+          action = action.cpu().numpy().squeeze(1)
+          action_log_prob_total += action_log_prob.cpu().numpy()
 
       state_next, reward, done, _ = env.step(action)
       terminal = done if episode_step < env_info.max_episode_steps else False
       episode_reward += reward
       D.append(Transition(state, action, state_next, reward, not terminal))
-
+      state = state_next
       if total_step > j["t_init"]:
         # 学習
         Dsub = D.sample(j["batch_size"])
-        Dsub = batch_shaping(Dsub, torch.FloatTensor, device=get_global_torch_device())
+        Dsub = batch_shaping(Dsub, torch.cuda.FloatTensor)
 
         jq = calc_q_loss(Dsub, policy, alpha, j["gamma"], cdq, cdq_t)
         qfOptimizer.zero_grad()
@@ -94,10 +103,10 @@ if __name__ == '__main__':
         alphaOptimizer.zero_grad()
         jalpha.backward()
         alphaOptimizer.step()
-        alpha = log_alpha.exp()
+        alpha = log_alpha.exp().to(get_global_torch_device())
+
+        delay_update(cdq, cdq_t, j["tau"])
 
       if done:
-        print(f"Epi: {epi}, Reward: {episode_reward}, alpha: {alpha}")
-        episode_step = 0
-        episode_reward = 0
+        print(f"Epi: {epi}, Reward: {episode_reward}, action_log_prob: {action_log_prob_total / episode_step}")
         break

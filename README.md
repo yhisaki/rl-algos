@@ -34,7 +34,7 @@ sudo usermod -aG staff <my-user-name>
 
 アンインストールするときは
 ```
-python setup.py develop -u
+python3 setup.py develop -u
 ```
 
 ## 実行結果

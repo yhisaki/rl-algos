@@ -45,11 +45,10 @@ def calc_policy_loss(
 def calc_temperature_loss(
     batch: Transition,
     policy: GaussianPolicy,
-    alpha,
+    log_alpha,
     target_entropy
 ):
-  with torch.no_grad():
-    _, action_log_prob = policy.sample(batch.state)
-  loss = - (alpha.exp() * (action_log_prob + target_entropy)).mean()
+  _, action_log_prob = policy.sample(batch.state)
+  loss = - (log_alpha.exp().to(get_global_torch_device()) * (action_log_prob + target_entropy)).mean()
   return loss
 

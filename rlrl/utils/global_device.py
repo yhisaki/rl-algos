@@ -10,6 +10,7 @@ def set_global_torch_device(dev: str):
     pass
   elif torch.cuda.is_available():
     _GLOBAL_DEVICE = dev
+    print(f"Using Dev: {dev}")
   else:
     IndexError("There is no GPU device")
 
