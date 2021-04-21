@@ -3,3 +3,4 @@ rlrl.egg-info/
 build/
 dist/
 rlrl/unused/
+log/
