@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch.optim import Adam
 import gym
+from gym import wrappers
 from rlrl.replay_buffers import ReplayBuffer
 from rlrl.q_funcs import ClippedDoubleQF, QFStateAction, delay_update
 from rlrl.policies import GaussianPolicy
@@ -30,9 +31,9 @@ if __name__ == '__main__':
   # make enviroment
   env = gym.make(j["env_name"])
   env_info = get_env_info(env)
-  state = env.reset()
+  # env = wrappers.Monitor(env, "log/video/" + j["env_name"], video_callable=(lambda ep: ep % 50 == 0), force=True)
 
-  set_global_seed(env, 5)
+  set_global_seed(env, 4)
 
   # set deviceh
   set_global_torch_device('cuda')
@@ -49,11 +50,9 @@ if __name__ == '__main__':
   cdq_t = copy.deepcopy(cdq)
   qfOptimizer = Adam(cdq.parameters(), lr=j["lr"])
 
-
   # alpha
-  log_alpha = torch.zeros(1, requires_grad=True)
-  alpha = log_alpha.exp().to(get_global_torch_device())
-  alphaOptimizer = Adam([log_alpha], lr=j["lr"])
+  alpha = TemperatureHolder()
+  alphaOptimizer = Adam(alpha.parameters(), lr=j["lr"])
   target_entropy = - env_info.dim_action
 
   # log
@@ -89,24 +88,23 @@ if __name__ == '__main__':
         Dsub = D.sample(j["batch_size"])
         Dsub = batch_shaping(Dsub, torch.cuda.FloatTensor)
 
-        jq = calc_q_loss(Dsub, policy, alpha, j["gamma"], cdq, cdq_t)
+        jq = calc_q_loss(Dsub, policy, alpha.to_float(), j["gamma"], cdq, cdq_t)
         qfOptimizer.zero_grad()
         jq.backward()
         qfOptimizer.step()
 
-        jp = calc_policy_loss(Dsub, policy, alpha, cdq)
+        jp = calc_policy_loss(Dsub, policy, alpha.to_float(), cdq)
         policyOptimizer.zero_grad()
         jp.backward()
         policyOptimizer.step()
 
-        jalpha = calc_temperature_loss(Dsub, policy, log_alpha, target_entropy)
+        jalpha = calc_temperature_loss(Dsub, policy, alpha(), target_entropy)
         alphaOptimizer.zero_grad()
         jalpha.backward()
         alphaOptimizer.step()
-        alpha = log_alpha.exp().to(get_global_torch_device())
 
         delay_update(cdq, cdq_t, j["tau"])
 
       if done:
-        print(f"Epi: {epi}, Reward: {episode_reward}, action_log_prob: {action_log_prob_total / episode_step}")
+        print(f"Epi: {epi}, Reward: {episode_reward}, action_log_prob: {action_log_prob_total / episode_step}, alpha: {alpha()}")
         break

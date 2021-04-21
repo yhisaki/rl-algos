@@ -1,14 +1,34 @@
-import copy
-import numpy as np
 from collections import namedtuple
 import torch
+from torch import nn
 import torch.nn.functional as F
 from rlrl.q_funcs.clipped_double_qf import ClippedDoubleQF
 from rlrl.policies.gaussian_policy import GaussianPolicy
-from rlrl.utils.global_device import get_global_torch_device
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward', 'mask'))
+
+
+class TemperatureHolder(nn.Module):
+  """Module that holds a temperature as a learnable value.
+
+  Args:
+      initial_log_temperature (float): Initial value of log(temperature).
+  """
+
+  def __init__(self, initial_log_temperature=0):
+    super().__init__()
+    self.log_temperature = nn.Parameter(
+        torch.tensor(initial_log_temperature, dtype=torch.float32) # pylint: disable=not-callable
+    )
+
+  def forward(self):
+    """Return a temperature as a torch.Tensor."""
+    return torch.exp(self.log_temperature)
+
+  def to_float(self):
+    with torch.no_grad():
+      return float(self())
 
 
 def calc_q_loss(
@@ -45,10 +65,10 @@ def calc_policy_loss(
 def calc_temperature_loss(
     batch: Transition,
     policy: GaussianPolicy,
-    log_alpha,
+    alpha,
     target_entropy
 ):
-  _, action_log_prob = policy.sample(batch.state)
-  loss = - (log_alpha.exp().to(get_global_torch_device()) * (action_log_prob + target_entropy)).mean()
+  with torch.no_grad():
+    _, action_log_prob = policy.sample(batch.state)
+  loss = - (alpha * (action_log_prob + target_entropy).detach()).mean()
   return loss
-
