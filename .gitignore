@@ -4,3 +4,4 @@ build/
 dist/
 rlrl/unused/
 log/
+.vscode/.ropeproject
