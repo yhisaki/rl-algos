@@ -89,6 +89,20 @@ class GaussianPolicy(nn.Module):
                                - F.softplus(-2 * _u))).sum(dim=1)
 
     return action, log_prob
+  
+  def get_action_entropy(self, state, action):
+    state = state.to(self.dev_)
+    mean, log_std = self.forward(state)
+    std = log_std.exp()  # 0 < std
+    normal = Normal(mean, std)
+    _action = (action - self.action_bias_)/self.action_scale_
+    _u = torch.atanh(_action*0.999)
+    log_prob = normal.log_prob(_u).sum(dim=1)
+    log_prob -= 2 * \
+        (self.action_scale_ * (np.log(2) - _u
+                               - F.softplus(-2 * _u))).sum(dim=1)
+    return log_prob
+
 
   # @overload
   # def sample(self, state, another_actions):
