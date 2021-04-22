@@ -1,4 +1,4 @@
-# Reinforcement Learning Research Library
+# rlrl
 
 ## 概要
 
