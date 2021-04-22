@@ -1,4 +1,3 @@
-from typing import overload
 import numpy as np
 
 import torch
@@ -104,38 +103,3 @@ class GaussianPolicy(nn.Module):
     return log_prob
 
 
-  # @overload
-  # def sample(self, state, another_actions):
-  #   """a~πΦ(・|s)となる確率変数aをサンプルしその対数尤度logπΦ(a|s)をもとめる．戻り値は微分可能
-
-  #   Args:
-  #       state ([type]): 状態量
-
-  #   Returns:
-  #       action, log_prob [type]: [description]
-  #   """
-  #   change_numpy_and_1d = False
-  #   if isinstance(state, np.ndarray) and (state.ndim == 1):
-  #     change_numpy_and_1d = True
-  #     state = torch.Tensor([state])
-
-  #   state = state.to(self.dev_)
-  #   mean, log_std = self.forward(state)
-  #   std = log_std.exp()  # 0 < std
-  #   normal = Normal(mean, std)
-  #   _u = normal.rsample()  # noise, for reparameterization trick (mean + std * N(0,1))
-  #   _action = torch.tanh(_u)  # -1 < _action < 1, スケーリング前
-  #   # action_low < action < action_high
-  #   action = _action * self.action_scale_ + self.action_bias_
-
-  #   # actionの対数尤度をもとめる
-  #   # tanhとかscale, biasで補正した分normal.log_prob(u)だけでは求まらない
-  #   my_log_prob = normal.log_prob(_u).sum(dim=1)
-  #   my_log_prob -= 2 * \
-  #       (self.action_scale_ * (np.log(2) - _u
-  #                              - F.softplus(-2 * _u))).sum(dim=1)
-
-  #   if change_numpy_and_1d:
-  #     action = action[0].detach()
-  #     my_log_prob = my_log_prob[0].detach()
-  #   return action, my_log_prob
