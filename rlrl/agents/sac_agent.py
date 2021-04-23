@@ -49,7 +49,7 @@ def calc_q_loss(
     q_target = batch.reward + batch.mask * gamma * torch.flatten(next_q - entropy_term)
 
   q0 = torch.flatten(cdqf[0](batch.state, batch.action))
-  q1 = torch.flatten(cdqf[1].forward(batch.state, batch.action))
+  q1 = torch.flatten(cdqf[1](batch.state, batch.action))
 
   loss = F.mse_loss(q0, q_target) + F.mse_loss(q1, q_target)
   return loss
