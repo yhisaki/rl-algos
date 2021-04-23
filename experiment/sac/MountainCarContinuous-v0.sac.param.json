@@ -1,5 +1,7 @@
 {
-  "env_name": "MountainCarContinuous-v0",
+  "env_id": "MountainCarContinuous-v0",
+  "seed": 5,
+  "device": "cuda",
   "episodes_num": 200,
   "hidden_dim": 256,
   "tau": 5E-3,

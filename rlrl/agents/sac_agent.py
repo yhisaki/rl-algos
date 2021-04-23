@@ -1,4 +1,5 @@
 from collections import namedtuple
+import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -32,19 +33,24 @@ class TemperatureHolder(nn.Module):
 
 
 def calc_q_loss(
-        batch: Transition,
-        policy: GaussianPolicy,
-        alpha,
-        gamma: float,
-        cdqf: ClippedDoubleQF,
-        cdqf_target: ClippedDoubleQF):
-  with torch.no_grad():
-    ap, ap_log_prob = policy.sample(batch.next_state)
-    q_sp_ap = cdqf_target.forward(batch.next_state, ap)
-    q_target = batch.reward + batch.mask * gamma * (q_sp_ap.squeeze() - alpha * ap_log_prob)
+    batch: Transition,
+    policy: GaussianPolicy,
+    alpha: torch.Tensor,
+    gamma: float,
+    cdqf: ClippedDoubleQF,
+    cdqf_target: ClippedDoubleQF
+) -> torch.Tensor:
 
-  q0 = cdqf[0].forward(batch.state, batch.action).squeeze()
-  q1 = cdqf[1].forward(batch.state, batch.action).squeeze()
+  with torch.no_grad():
+    next_action_distrib = policy(batch.next_state)
+    next_action = next_action_distrib.sample()
+    next_log_prob = next_action_distrib.log_prob(next_action)
+    next_q = cdqf_target(batch.next_state, next_action)
+    entropy_term = alpha * next_log_prob[..., None]
+    q_target = batch.reward + batch.mask * gamma * torch.flatten(next_q - entropy_term)
+
+  q0 = torch.flatten(cdqf[0](batch.state, batch.action))
+  q1 = torch.flatten(cdqf[1].forward(batch.state, batch.action))
 
   loss = F.mse_loss(q0, q_target) + F.mse_loss(q1, q_target)
   return loss
@@ -53,22 +59,29 @@ def calc_q_loss(
 def calc_policy_loss(
     batch: Transition,
     policy: GaussianPolicy,
-    alpha,
+    alpha: torch.Tensor,
     cdq: ClippedDoubleQF
-):
-  action, action_log_prob = policy.sample(batch.state)
+) -> torch.Tensor:
+
+  action_distrib = policy(batch.state)
+  action = action_distrib.rsample()
+  log_prob = action_distrib.log_prob(action)
   q = cdq.forward(batch.state, action)
-  loss = (alpha * action_log_prob - q.squeeze()).mean()
+  loss = (alpha * log_prob - q.flatten()).mean()
   return loss
 
 
 def calc_temperature_loss(
     batch: Transition,
     policy: GaussianPolicy,
-    alpha,
-    target_entropy
-):
+    alpha: torch.Tensor,
+    target_entropy: float
+) -> torch.Tensor:
+
   with torch.no_grad():
-    _, action_log_prob = policy.sample(batch.state)
-  loss = - (alpha * (action_log_prob + target_entropy).detach()).mean()
+    action_distrib = policy(batch.state)
+    action = action_distrib.sample()
+    log_prob = action_distrib.log_prob(action)
+
+  loss = - (alpha * (log_prob + target_entropy).detach()).mean()
   return loss

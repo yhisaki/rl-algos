@@ -1,10 +1,14 @@
 {
-  "env_name": "BipedalWalker-v3",
-  "episodes_num": 400,
+  "env_id": "BipedalWalker-v3",
+  "seed": 5,
+  "device": "cuda",
+  "episodes_num": 200,
   "hidden_dim": 256,
+  "tau": 5E-3,
   "t_init": 500,
   "replay_buffer_capacity": 1E+6,
   "batch_size": 10,
   "gamma": 0.99,
-  "lr": 1E-3
+  "lr": 1E-3,
+  "path_to_checkpoint": ""
 }
