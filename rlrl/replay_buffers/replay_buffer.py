@@ -2,8 +2,6 @@ import collections
 import pickle
 from typing import Optional
 
-import torch
-
 from rlrl.collections.random_access_queue import RandomAccessQueue
 from rlrl import replay_buffer
 
@@ -33,10 +31,9 @@ class ReplayBuffer(replay_buffer.AbstractReplayBuffer):
   ):
     self.memory.append(transition)
 
-  def sample(self, num_experiences, **kwargs):
-    assert len(self.memory) >= num_experiences
-    s = self.memory.sample(num_experiences)
-    
+  def sample(self, n, **kwargs):
+    assert len(self.memory) >= n
+    s = self.memory.sample(n)
     return s
 
   def __len__(self):
