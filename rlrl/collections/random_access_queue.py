@@ -1,6 +1,6 @@
 import itertools
 
-from rlrl.utils.random import sample_n_k
+from rlrl.utils.sample_n_k import sample_n_k
 
 
 class RandomAccessQueue(object):
