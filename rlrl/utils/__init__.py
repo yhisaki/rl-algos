@@ -3,3 +3,4 @@ from rlrl.utils.global_seed import set_global_seed
 from rlrl.utils.env_info import get_env_info, EnvInfo
 from rlrl.utils.batch_shaping import batch_shaping
 from rlrl.utils.get_module_device import get_module_device
+from rlrl.utils.play_stochastic_policy import play_stochastic_policy
