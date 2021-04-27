@@ -1,1 +1,1 @@
-from rlrl.policies.gaussian_policy import GaussianPolicy
+from rlrl.policies.squashed_gaussian_policy import SquashedGaussianPolicy
