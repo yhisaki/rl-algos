@@ -4,10 +4,9 @@ import argparse
 import torch
 from torch.optim import Adam
 import gym
-from gym import wrappers
 from rlrl.replay_buffers import ReplayBuffer
 from rlrl.q_funcs import ClippedDoubleQF, QFStateAction, delay_update
-from rlrl.policies import GaussianPolicy
+from rlrl.policies import SquashedGaussianPolicy
 from rlrl.utils import (
     set_global_torch_device,
     get_global_torch_device,
@@ -16,7 +15,6 @@ from rlrl.utils import (
     batch_shaping
 )
 import rlrl.agents.sac_agent as sac
-
 # gym.logger.set_level(40)
 
 
@@ -24,8 +22,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
 
   # load json file
-  f = open('experiment/sac/MountainCarContinuous-v0.sac.param.json', mode='r')
-  # f = open('experiment/sac/BipedalWalker-v3.sac.param.json', mode='r')
+  # f = open('experiment/sac/MountainCarContinuous-v0.sac.param.json', mode='r')
+  f = open('experiment/sac/BipedalWalker-v3.sac.param.json', mode='r')
   j = json.load(f)
   print(f'Gym Enviroment is \033[34m{j["env_id"]}\033[0m')
 
@@ -43,7 +41,7 @@ if __name__ == '__main__':
   D = ReplayBuffer(j["replay_buffer_capacity"])
 
   # policy
-  policy = GaussianPolicy(env_info, j["hidden_dim"]).to(get_global_torch_device())
+  policy = SquashedGaussianPolicy(env_info, j["hidden_dim"]).to(get_global_torch_device())
   policyOptimizer = Adam(policy.parameters(), lr=j["lr"])
 
   # QFunction
@@ -110,5 +108,5 @@ if __name__ == '__main__':
         delay_update(cdq, cdq_t, j["tau"])
 
       if done:
-        print(f"Epi: {epi}, Reward: {episode_reward}, action_log_prob: {episode_action_entropy / episode_step}, alpha: {alpha()}")
+        print(f"Epi: {epi}, Reward: {episode_reward}, entropy: {episode_action_entropy / episode_step}, alpha: {alpha()}")
         break

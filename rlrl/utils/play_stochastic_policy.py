@@ -46,7 +46,7 @@ def _my_makedirs(path):
 if __name__ == '__main__':
   import gym
   # pylint: disable=ungrouped-imports
-  from rlrl.policies import GaussianPolicy
+  from rlrl.policies import SquashedGaussianPolicy
   from rlrl.utils import get_env_info
   from pyvirtualdisplay import Display
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
   gym_env = gym.make("BipedalWalker-v3")
   env_info = get_env_info(gym_env)
-  p = GaussianPolicy(env_info, 20).to('cuda')
+  p = SquashedGaussianPolicy(env_info, 20).to('cuda')
 
   play_stochastic_policy(gym_env, p, "log/test/popopo", "poyo", 2)
   play_stochastic_policy(gym_env, p, "log/test/popopo2", "poyo", 2)

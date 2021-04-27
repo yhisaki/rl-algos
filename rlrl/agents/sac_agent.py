@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from rlrl.q_funcs.clipped_double_qf import ClippedDoubleQF
-from rlrl.policies.gaussian_policy import GaussianPolicy
+from rlrl.policies.squashed_gaussian_policy import SquashedGaussianPolicy
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward', 'mask'))
@@ -33,7 +33,7 @@ class TemperatureHolder(nn.Module):
 
 def calc_q_loss(
     batch: Transition,
-    policy: GaussianPolicy,
+    policy: SquashedGaussianPolicy,
     alpha: torch.Tensor,
     gamma: float,
     cdqf: ClippedDoubleQF,
@@ -57,7 +57,7 @@ def calc_q_loss(
 
 def calc_policy_loss(
     batch: Transition,
-    policy: GaussianPolicy,
+    policy: SquashedGaussianPolicy,
     alpha: torch.Tensor,
     cdq: ClippedDoubleQF
 ) -> torch.Tensor:
@@ -72,7 +72,7 @@ def calc_policy_loss(
 
 def calc_temperature_loss(
     batch: Transition,
-    policy: GaussianPolicy,
+    policy: SquashedGaussianPolicy,
     alpha: torch.Tensor,
     target_entropy: float
 ) -> torch.Tensor:
