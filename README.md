@@ -41,19 +41,7 @@ python3 setup.py develop -u
 
 ### BipedalWalker-v3 + SoftActorCritic
 
-- 報酬推移
+報酬推移と獲得方策
 
-  <img src=asset/sac-BipedalWalker-v3/result.png width=50%>
+<img src=asset/sac-BipedalWalker-v3/result.png width=30%> <img src=asset/sac-BipedalWalker-v3/epi350.gif width=30%>
 
-- 獲得方策
-  
-  <img src=asset/sac-BipedalWalker-v3/epi350.gif width=50%>
-
-
-<script type="text/x-mathjax-config">
-MathJax.Hub.Config({
-  tex2jax: {
-    inlineMath: [['$','$'], ['\\(','\\)']],
-    processEscapes: true
-  }
-});
