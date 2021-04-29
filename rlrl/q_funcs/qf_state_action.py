@@ -1,6 +1,6 @@
+import copy
 import torch
 import torch.nn as nn
-from rlrl.utils import EnvInfo
 
 
 class QFStateAction(nn.Module):
@@ -13,24 +13,13 @@ class QFStateAction(nn.Module):
       nn ([type]): [description]
   """
 
-  def __init__(self, env_info: EnvInfo, hidden_dim: int):
+  def __init__(self, q_n):
     super(QFStateAction, self).__init__()
-    self.dim_state_ = env_info.dim_state
-    self.dim_action_ = env_info.dim_action
-
-    layers = [
-        nn.Linear(self.dim_state_ + self.dim_action_, hidden_dim),
-        nn.ReLU(),
-        nn.Linear(hidden_dim, hidden_dim),
-        nn.ReLU(),
-        nn.Linear(hidden_dim, 1)
-    ]
-
-    self.Q_ = nn.Sequential(*layers)
+    self._Q = copy.deepcopy(q_n)
 
   def forward(self, state, action):
     state_action = torch.cat([state, action], dim=1)
-    return self.Q_(state_action)
+    return self._Q(state_action)
 
 
 def delay_update(src: QFStateAction, dst: QFStateAction, tau: float = 1.0):
