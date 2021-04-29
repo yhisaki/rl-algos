@@ -2,11 +2,13 @@ import json
 import copy
 import argparse
 import torch
+from torch import nn # pylint: disable=unused-import
 from torch.optim import Adam
 import gym
 from rlrl.replay_buffers import ReplayBuffer
 from rlrl.q_funcs import ClippedDoubleQF, QFStateAction, delay_update
 from rlrl.policies import SquashedGaussianPolicy
+from rlrl.nn import build_simple_linear_nn
 from rlrl.utils import (
     set_global_torch_device,
     get_global_torch_device,
@@ -18,19 +20,12 @@ import rlrl.agents.sac_agent as sac
 # gym.logger.set_level(40)
 
 
-if __name__ == '__main__':
+def main(j):
   parser = argparse.ArgumentParser()
-
-  # load json file
-  # f = open('experiment/sac/MountainCarContinuous-v0.sac.param.json', mode='r')
-  f = open('experiment/sac/BipedalWalker-v3.sac.param.json', mode='r')
-  j = json.load(f)
-  print(f'Gym Enviroment is \033[34m{j["env_id"]}\033[0m')
 
   # make enviroment
   env = gym.make(j["env_id"])
   env_info = get_env_info(env)
-  # env = wrappers.Monitor(env, "log/video/" + j["env_id"], video_callable=(lambda ep: ep % 50 == 0), force=True)
 
   set_global_seed(env, j["seed"])
 
@@ -41,11 +36,13 @@ if __name__ == '__main__':
   D = ReplayBuffer(j["replay_buffer_capacity"])
 
   # policy
-  policy = SquashedGaussianPolicy(env_info, j["hidden_dim"]).to(get_global_torch_device())
+  policy_n = build_simple_linear_nn(env_info.dim_state, env_info.dim_action * 2,
+                                    j["policy_n"]["hidden_unit"], eval(j["policy_n"]["hidden_activation"]))
+  policy = SquashedGaussianPolicy(policy_n).to(get_global_torch_device())
   policyOptimizer = Adam(policy.parameters(), lr=j["lr"])
 
   # QFunction
-  cdq = ClippedDoubleQF(QFStateAction, env_info, j["hidden_dim"]).to(get_global_torch_device())
+  cdq = ClippedDoubleQF(QFStateAction, *make_two_qf(env_info, j)).to(get_global_torch_device())
   cdq_t = copy.deepcopy(cdq)
   qfOptimizer = Adam(cdq.parameters(), lr=j["lr"])
 
@@ -72,12 +69,8 @@ if __name__ == '__main__':
         action = env.action_space.sample()
       else:
         with torch.no_grad():
-          # pylint: disable-msg=not-callable,line-too-long
-          policy_disturb = policy(torch.tensor(state, dtype=torch.float32, device=get_global_torch_device()))
-          action = policy_disturb.sample()
-          action_log_prob = policy_disturb.log_prob(action)
-          action = action.cpu().numpy()
-          episode_action_entropy -= action_log_prob
+          action, entropy = get_action_and_entropy(state, policy)
+          episode_action_entropy += entropy
 
       state_next, reward, done, _ = env.step(action)
       terminal = done if episode_step < env_info.max_episode_steps else False
@@ -91,22 +84,56 @@ if __name__ == '__main__':
         Dsub = batch_shaping(Dsub, torch.cuda.FloatTensor)
 
         jq = sac.calc_q_loss(Dsub, policy, alpha(), j["gamma"], cdq, cdq_t)
-        qfOptimizer.zero_grad()
-        jq.backward()
-        qfOptimizer.step()
+        optimize(jq, qfOptimizer)
 
         jp = sac.calc_policy_loss(Dsub, policy, alpha(), cdq)
-        policyOptimizer.zero_grad()
-        jp.backward()
-        policyOptimizer.step()
+        optimize(jp, policyOptimizer)
 
         jalpha = sac.calc_temperature_loss(Dsub, policy, alpha(), target_entropy)
-        alphaOptimizer.zero_grad()
-        jalpha.backward()
-        alphaOptimizer.step()
+        optimize(jalpha, alphaOptimizer)
 
         delay_update(cdq, cdq_t, j["tau"])
 
       if done:
         print(f"Epi: {epi}, Reward: {episode_reward}, entropy: {episode_action_entropy / episode_step}, alpha: {alpha()}")
         break
+
+
+def optimize(j, opti):
+  opti.zero_grad()
+  j.backward()
+  opti.step()
+
+
+def make_two_qf(env_info, j):
+  q_net1 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1,
+                                  j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
+  q_net2 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1,
+                                  j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
+  return q_net1, q_net2
+
+
+def get_action_and_entropy(state, policy):
+  with torch.no_grad():
+    # pylint: disable-msg=not-callable,line-too-long
+    policy_disturb = policy(torch.tensor(state, dtype=torch.float32, device=get_global_torch_device()))
+    action = policy_disturb.sample()
+    action_log_prob = policy_disturb.log_prob(action)
+    action_log_prob = action_log_prob.cpu().numpy()
+    action = action.cpu().numpy()
+
+  return action, - action_log_prob
+
+
+if __name__ == '__main__':
+  # load json file
+
+  path_to_parameter = "experiment/sac/parameters/MountainCarContinuous-v0.sac.param.json"
+  # path_to_parameter = "experiment/sac/parameters/BipedalWalker-v3.sac.param.json"
+
+  f = open(path_to_parameter, mode='r')
+  param = json.load(f)
+
+  print(f'Gym Enviroment is \033[34m{param["env_id"]}\033[0m')
+
+  main(param)
