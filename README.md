@@ -6,7 +6,6 @@
 
 ## Install Guide
 
-### For Developer
 
 ディレクトリ直下で
 
