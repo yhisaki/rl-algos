@@ -42,7 +42,7 @@ def main(j):
   policyOptimizer = Adam(policy.parameters(), lr=j["lr"])
 
   # QFunction
-  cdq = ClippedDoubleQF(QFStateAction, *make_two_qf(env_info, j)).to(get_global_torch_device())
+  cdq = ClippedDoubleQF(*make_two_qf(env_info, j)).to(get_global_torch_device())
   cdq_t = copy.deepcopy(cdq)
   qfOptimizer = Adam(cdq.parameters(), lr=j["lr"])
 
@@ -110,7 +110,9 @@ def make_two_qf(env_info, j):
                                   j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
   q_net2 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1,
                                   j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
-  return q_net1, q_net2
+  qf1 = QFStateAction(q_net1)
+  qf2 = QFStateAction(q_net2)                              
+  return qf1, qf2
 
 
 def get_action_and_entropy(state, policy):
@@ -127,7 +129,7 @@ def get_action_and_entropy(state, policy):
 
 if __name__ == '__main__':
   # load json file
-
+  # path_to_parameter = "experiment/sac/parameters/Hopper-v2.sac.param.json"
   path_to_parameter = "experiment/sac/parameters/MountainCarContinuous-v0.sac.param.json"
   # path_to_parameter = "experiment/sac/parameters/BipedalWalker-v3.sac.param.json"
 
