@@ -16,7 +16,7 @@ def build_simple_linear_nn(
       input_dim (int): [description]
       output_dim (int): [description]
       hidden_units (list): [description]
-      hidden_activation ([type]): [description]
+      hidden_activation (nn.Module or str): [description]
       output_activation ([type], optional): [description]. Defaults to None.
 
   Returns:
@@ -26,7 +26,10 @@ def build_simple_linear_nn(
   units = input_dim
   for next_units in hidden_units:
     model.append(nn.Linear(units, next_units))
-    model.append(hidden_activation())
+    if isinstance(hidden_activation, str):
+      model.append(eval("nn." + hidden_activation)())
+    else:
+      model.append(hidden_activation())
     units = next_units
   model.append(nn.Linear(units, output_dim))
 
@@ -45,3 +48,5 @@ if __name__ == '__main__':
   print(f)
   f2 = build_simple_linear_nn(10, 3, [256, 256], nn.ReLU, lambda x: 2 * x)
   print(f2)
+  f3 = build_simple_linear_nn(10, 3, [256, 256], "ReLU", lambda x: 2 * x)
+  print(f3)
