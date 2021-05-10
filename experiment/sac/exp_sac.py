@@ -68,16 +68,18 @@ def main(j):
       if len(D) < j["t_init"]:
         action = env.action_space.sample()
       else:
-        with torch.no_grad():
-          action, entropy = get_action_and_entropy(state, policy)
-          episode_action_entropy += entropy
+        action, entropy = get_action_and_entropy(state, policy)
+        episode_action_entropy += entropy
 
       state_next, reward, done, _ = env.step(action)
       terminal = done if episode_step < env_info.max_episode_steps else False
       episode_reward += reward
       D.append(sac.Transition(state, action, state_next, reward, not terminal))
-      # update state
-      state = state_next
+      state = state_next # update state
+
+      if len(D) == j["t_init"]:
+        break
+
       if total_step > j["t_init"]:
         # learning
         Dsub = D.sample(j["batch_size"])
@@ -111,16 +113,16 @@ def make_two_qf(env_info, j):
   q_net2 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1,
                                   j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
   qf1 = QFStateAction(q_net1)
-  qf2 = QFStateAction(q_net2)                              
+  qf2 = QFStateAction(q_net2)
   return qf1, qf2
 
 
 def get_action_and_entropy(state, policy):
   with torch.no_grad():
     # pylint: disable-msg=not-callable,line-too-long
-    policy_disturb = policy(torch.tensor(state, dtype=torch.float32, device=get_global_torch_device()))
-    action = policy_disturb.sample()
-    action_log_prob = policy_disturb.log_prob(action)
+    policy_distrib = policy(torch.tensor(state, dtype=torch.float32, device=get_global_torch_device()))
+    action = policy_distrib.sample()
+    action_log_prob = policy_distrib.log_prob(action)
     action_log_prob = action_log_prob.cpu().numpy()
     action = action.cpu().numpy()
 
