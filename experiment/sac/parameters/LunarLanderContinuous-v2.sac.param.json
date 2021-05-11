@@ -1,0 +1,27 @@
+{
+  "env_id": "LunarLanderContinuous-v2",
+  "seed": 5,
+  "device": "cuda",
+  "episodes_num": 600,
+  "q_n": {
+    "hidden_unit": [
+      256,
+      256
+    ],
+    "hidden_activation": "nn.ReLU"
+  },
+  "policy_n": {
+    "hidden_unit": [
+      256,
+      256
+    ],
+    "hidden_activation": "nn.ReLU"
+  },
+  "tau": 5E-3,
+  "t_init": 10000,
+  "replay_buffer_capacity": 1E+6,
+  "batch_size": 256,
+  "gamma": 0.99,
+  "lr": 1E-3,
+  "path_to_checkpoint": ""
+}
