@@ -1,4 +1,6 @@
 {
   "restructuredtext.confPath": "${workspaceFolder}/doc/source",
-  "restructuredtext.builtDocumentationPath": "${workspaceFolder}/doc/build/html"
+  "restructuredtext.builtDocumentationPath": "${workspaceFolder}/doc/build/html",
+  "python.linting.pylintEnabled": true,
+  "restructuredtext.languageServer.disabled": true
 }
