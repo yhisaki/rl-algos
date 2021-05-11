@@ -26,3 +26,27 @@ def sample_n_k(n, k):
           j = k
       selected_add(x)
     return result[:k]
+
+
+if __name__ == "__main__":
+  import time
+  import random
+
+  _n = 10000000
+  _k = 10
+
+  start = time.time()
+  l = sample_n_k(_n, _k)
+  elapsed_time = time.time() - start
+  print(f"sample_n_k      : {elapsed_time}")
+
+  start = time.time()
+  l = np.random.choice(_n, _k, replace=False)
+  elapsed_time = time.time() - start
+  print(f"np.random.choice: {elapsed_time}")
+
+  start = time.time()
+  l = random.sample(range(_n), _k)
+  print(l)
+  elapsed_time = time.time() - start
+  print(f"random.sample   : {elapsed_time}")
