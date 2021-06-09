@@ -1,6 +1,26 @@
 {
-  "restructuredtext.confPath": "${workspaceFolder}/doc/source",
-  "restructuredtext.builtDocumentationPath": "${workspaceFolder}/doc/build/html",
-  "python.linting.pylintEnabled": true,
-  "restructuredtext.languageServer.disabled": true
+  "restructuredtext.languageServer.disabled": true,
+  "restructuredtext.confPath": "${workspaceFolder}/docs",
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/*.sif": true,
+    "**/*.egg-info": true,
+    "**/__pycache__/": true,
+    "docs/_build": true
+  },
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.formatting.provider": "black",
+
+  "[python]": {
+    "editor.wordBasedSuggestions": false,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+  }
 }
