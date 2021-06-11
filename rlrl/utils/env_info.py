@@ -1,6 +1,8 @@
 from collections import namedtuple
 
-EnvInfo = namedtuple("EnvInfo", ("dim_state", "dim_action", "action_high", "action_low", "max_episode_steps"))
+EnvInfo = namedtuple(
+    "EnvInfo", ("dim_state", "dim_action", "action_high", "action_low", "max_episode_steps")
+)
 
 
 def get_env_info(env):

@@ -8,4 +8,10 @@ install_requires = [
     "filelock",
 ]
 
-setup(name="rlrl", version="1.0.0", description="Library for RL research", author="hisaki", packages=["rlrl"])
+setup(
+    name="rlrl",
+    version="1.0.0",
+    description="Library for RL research",
+    author="hisaki",
+    packages=["rlrl"],
+)

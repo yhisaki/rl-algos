@@ -3,7 +3,9 @@ from torch import nn
 from rlrl.nn.lmbda import Lambda
 
 
-def build_simple_linear_nn(input_dim: int, output_dim: int, hidden_units: list, hidden_activation, output_activation=None):
+def build_simple_linear_nn(
+    input_dim: int, output_dim: int, hidden_units: list, hidden_activation, output_activation=None
+):
     """build_simple_linear_nn
 
     Args:

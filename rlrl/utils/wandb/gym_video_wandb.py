@@ -18,7 +18,7 @@ class GymVideoWandb(object):
       color = (255, 255, 255)
       thickness = 2
       line_type = cv2.LINE_AA
-      # https://docs.opencv.org/master/d6/d6e/group__imgproc__draw.html#ga5126f47f883d730f633d74f07456c576
+    # https://docs.opencv.org/master/d6/d6e/group__imgproc__draw.html#ga5126f47f883d730f633d74f07456c576
       cv2.putText(
           frame,
           text,

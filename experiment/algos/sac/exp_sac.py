@@ -9,7 +9,13 @@ from rlrl.replay_buffers import ReplayBuffer
 from rlrl.q_funcs import ClippedDoubleQF, QFStateAction, delay_update
 from rlrl.policies import SquashedGaussianPolicy
 from rlrl.nn import build_simple_linear_nn
-from rlrl.utils import set_global_torch_device, get_global_torch_device, set_global_seed, get_env_info, batch_shaping
+from rlrl.utils import (
+    set_global_torch_device,
+    get_global_torch_device,
+    set_global_seed,
+    get_env_info,
+    batch_shaping,
+)
 import rlrl.agents.sac_agent as sac
 
 # gym.logger.set_level(40)
@@ -32,7 +38,10 @@ def main(j):
 
     # policy
     policy_n = build_simple_linear_nn(
-        env_info.dim_state, env_info.dim_action * 2, j["policy_n"]["hidden_unit"], eval(j["policy_n"]["hidden_activation"])
+        env_info.dim_state,
+        env_info.dim_action * 2,
+        j["policy_n"]["hidden_unit"],
+        eval(j["policy_n"]["hidden_activation"]),
     )
     policy = SquashedGaussianPolicy(policy_n).to(get_global_torch_device())
     policyOptimizer = Adam(policy.parameters(), lr=j["lr"])
@@ -93,7 +102,9 @@ def main(j):
                 delay_update(cdq, cdq_t, j["tau"])
 
             if done:
-                print(f"Epi: {epi}, Reward: {episode_reward}, entropy: {episode_action_entropy / episode_step}, alpha: {alpha()}")
+                print(
+                    f"Epi: {epi}, Reward: {episode_reward}, entropy: {episode_action_entropy / episode_step}, alpha: {alpha()}"
+                )
                 break
 
 
@@ -104,8 +115,18 @@ def optimize(j, opti):
 
 
 def make_two_qf(env_info, j):
-    q_net1 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1, j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
-    q_net2 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1, j["q_n"]["hidden_unit"], eval(j["q_n"]["hidden_activation"]))
+    q_net1 = build_simple_linear_nn(
+        env_info.dim_state + env_info.dim_action,
+        1,
+        j["q_n"]["hidden_unit"],
+        eval(j["q_n"]["hidden_activation"]),
+    )
+    q_net2 = build_simple_linear_nn(
+        env_info.dim_state + env_info.dim_action,
+        1,
+        j["q_n"]["hidden_unit"],
+        eval(j["q_n"]["hidden_activation"]),
+    )
     qf1 = QFStateAction(q_net1)
     qf2 = QFStateAction(q_net2)
     return qf1, qf2
@@ -114,7 +135,9 @@ def make_two_qf(env_info, j):
 def get_action_and_entropy(state, policy):
     with torch.no_grad():
         # pylint: disable-msg=not-callable,line-too-long
-        policy_distrib = policy(torch.tensor(state, dtype=torch.float32, device=get_global_torch_device()))
+        policy_distrib = policy(
+            torch.tensor(state, dtype=torch.float32, device=get_global_torch_device())
+        )
         action = policy_distrib.sample()
         action_log_prob = policy_distrib.log_prob(action)
         action_log_prob = action_log_prob.cpu().numpy()

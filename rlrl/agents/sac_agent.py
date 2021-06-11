@@ -17,7 +17,9 @@ class TemperatureHolder(nn.Module):
 
     def __init__(self, initial_log_temperature=0):
         super().__init__()
-        self.log_temperature = nn.Parameter(torch.tensor(initial_log_temperature, dtype=torch.float32))  # pylint: disable=not-callable
+        self.log_temperature = nn.Parameter(
+            torch.tensor(initial_log_temperature, dtype=torch.float32)
+        )  # pylint: disable=not-callable
 
     def forward(self):
         """Return a temperature as a torch.Tensor."""
@@ -29,7 +31,12 @@ class TemperatureHolder(nn.Module):
 
 
 def calc_q_loss(
-    batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, gamma: float, cdqf: ClippedDoubleQF, cdqf_target: ClippedDoubleQF
+    batch: Transition,
+    policy: SquashedGaussianPolicy,
+    alpha: torch.Tensor,
+    gamma: float,
+    cdqf: ClippedDoubleQF,
+    cdqf_target: ClippedDoubleQF,
 ) -> torch.Tensor:
 
     with torch.no_grad():
@@ -47,7 +54,9 @@ def calc_q_loss(
     return loss
 
 
-def calc_policy_loss(batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, cdq: ClippedDoubleQF) -> torch.Tensor:
+def calc_policy_loss(
+    batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, cdq: ClippedDoubleQF
+) -> torch.Tensor:
 
     action_distrib = policy(batch.state)
     action = action_distrib.rsample()
@@ -57,7 +66,9 @@ def calc_policy_loss(batch: Transition, policy: SquashedGaussianPolicy, alpha: t
     return loss
 
 
-def calc_temperature_loss(batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, target_entropy: float) -> torch.Tensor:
+def calc_temperature_loss(
+    batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, target_entropy: float
+) -> torch.Tensor:
 
     with torch.no_grad():
         action_distrib = policy(batch.state)
