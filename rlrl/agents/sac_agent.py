@@ -32,13 +32,25 @@ class TemperatureHolder(nn.Module):
 
 def calc_q_loss(
     batch: Transition,
-    policy: SquashedGaussianPolicy,
+    policy: torch.nn.Module,
     alpha: torch.Tensor,
     gamma: float,
     cdqf: ClippedDoubleQF,
     cdqf_target: ClippedDoubleQF,
 ) -> torch.Tensor:
+    """Evaluation function of Q function in SAC
 
+    Args:
+        batch (Transition): Replay Buffer
+        policy (torch.nn.Module): Policy. policy.forward(s) returns torch.distribution
+        alpha (torch.Tensor): temperature.
+        gamma (float): discount rate
+        cdqf (ClippedDoubleQF): clipped double q function
+        cdqf_target (ClippedDoubleQF): target clipped double q function
+
+    Returns:
+        torch.Tensor: [description]
+    """
     with torch.no_grad():
         next_action_distrib = policy(batch.next_state)
         next_action = next_action_distrib.sample()
@@ -77,3 +89,24 @@ def calc_temperature_loss(
 
     loss = -(alpha * (log_prob + target_entropy).detach()).mean()
     return loss
+
+
+def get_action_and_entropy(state, policy, dev):
+    """sampling action from policy and state(numpy or list)
+
+    Args:
+        state (numpy or list): [description]
+        policy ([type]): [description]
+        dev ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    with torch.no_grad():
+        policy_distrib = policy(torch.tensor(state, dtype=torch.float32, device=dev))
+        action = policy_distrib.sample()
+        action_log_prob = policy_distrib.log_prob(action)
+        action_log_prob = action_log_prob.cpu().numpy()
+        action = action.cpu().numpy()
+
+    return action, -action_log_prob
