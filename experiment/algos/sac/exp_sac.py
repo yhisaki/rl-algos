@@ -9,7 +9,7 @@ import rlrl.utils.wandb as rlwandb
 from rlrl.replay_buffers import ReplayBuffer
 from rlrl.q_funcs import ClippedDoubleQF, QFStateAction, delay_update
 from rlrl.policies import SquashedGaussianPolicy  # noqa: F401
-from rlrl.nn import build_simple_linear_nn, Lambda
+from rlrl.nn import build_simple_linear_sequential, Lambda
 from rlrl.utils import set_global_seed, get_env_info, batch_shaping
 import rlrl.agents.sac_agent as sac
 import wandb
@@ -138,7 +138,7 @@ def make_sac(config):
     D = ReplayBuffer(config.replay_buffer_capacity)
 
     # # policy
-    # policy_n = build_simple_linear_nn(env_info.dim_state,
+    # policy_n = build_simple_linear_sequential(env_info.dim_state,
     #                                   env_info.dim_action * 2,
     #                                   **config.policy_n)
     # policy = SquashedGaussianPolicy(policy_n).to(dev)
@@ -171,8 +171,8 @@ def make_sac(config):
     policy_optimizer = Adam(policy.parameters(), lr=config.lr)
 
     # QFunction
-    q_net1 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
-    q_net2 = build_simple_linear_nn(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
+    q_net1 = build_simple_linear_sequential(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
+    q_net2 = build_simple_linear_sequential(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
     cdq = ClippedDoubleQF(QFStateAction(q_net1), QFStateAction(q_net2)).to(dev)
     cdq_t = copy.deepcopy(cdq)
     qf_optimizer = Adam(cdq.parameters(), lr=config.lr)

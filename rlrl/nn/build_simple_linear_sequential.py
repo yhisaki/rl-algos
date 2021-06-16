@@ -3,10 +3,10 @@ from torch import nn
 from rlrl.nn.lmbda import Lambda
 
 
-def build_simple_linear_nn(
+def build_simple_linear_sequential(
     input_dim: int, output_dim: int, hidden_units: list, hidden_activation, output_activation=None
 ):
-    """build_simple_linear_nn
+    """build_simple_linear_sequential
 
     Args:
         input_dim (int): [description]
@@ -40,9 +40,9 @@ def build_simple_linear_nn(
 
 
 if __name__ == "__main__":
-    f = build_simple_linear_nn(10, 3, [256, 256], nn.ReLU, nn.Tanh)
+    f = build_simple_linear_sequential(10, 3, [256, 256], nn.ReLU, nn.Tanh)
     print(f)
-    f2 = build_simple_linear_nn(10, 3, [256, 256], nn.ReLU, lambda x: 2 * x)
+    f2 = build_simple_linear_sequential(10, 3, [256, 256], nn.ReLU, lambda x: 2 * x)
     print(f2)
-    f3 = build_simple_linear_nn(10, 3, [256, 256], "ReLU", lambda x: 2 * x)
+    f3 = build_simple_linear_sequential(10, 3, [256, 256], "ReLU", lambda x: 2 * x)
     print(f3)
