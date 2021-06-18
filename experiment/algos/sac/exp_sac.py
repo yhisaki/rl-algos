@@ -171,8 +171,12 @@ def make_sac(config):
     policy_optimizer = Adam(policy.parameters(), lr=config.lr)
 
     # QFunction
-    q_net1 = build_simple_linear_sequential(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
-    q_net2 = build_simple_linear_sequential(env_info.dim_state + env_info.dim_action, 1, **config.q_n)
+    q_net1 = build_simple_linear_sequential(
+        env_info.dim_state + env_info.dim_action, 1, **config.q_n
+    )
+    q_net2 = build_simple_linear_sequential(
+        env_info.dim_state + env_info.dim_action, 1, **config.q_n
+    )
     cdq = ClippedDoubleQF(QFStateAction(q_net1), QFStateAction(q_net2)).to(dev)
     cdq_t = copy.deepcopy(cdq)
     qf_optimizer = Adam(cdq.parameters(), lr=config.lr)
