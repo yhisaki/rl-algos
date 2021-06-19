@@ -1,4 +1,5 @@
 from collections import namedtuple
+from rlrl.utils.get_module_device import get_module_device
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -19,7 +20,7 @@ class TemperatureHolder(nn.Module):
         super().__init__()
         self.log_temperature = nn.Parameter(
             torch.tensor(initial_log_temperature, dtype=torch.float32)
-        )  # pylint: disable=not-callable
+        )
 
     def forward(self):
         """Return a temperature as a torch.Tensor."""
@@ -91,7 +92,7 @@ def calc_temperature_loss(
     return loss
 
 
-def get_action_and_entropy(state, policy, dev):
+def get_action_and_entropy(state, policy, dev=None):
     """sampling action from policy and state(numpy or list)
 
     Args:
@@ -102,7 +103,9 @@ def get_action_and_entropy(state, policy, dev):
     Returns:
         [type]: [description]
     """
-    with torch.no_grad():
+    if dev is None:
+        dev = get_module_device(policy)
+    with torch.no_grad(), evaluating(policy):
         policy_distrib = policy(torch.tensor(state, dtype=torch.float32, device=dev))
         action = policy_distrib.sample()
         action_log_prob = policy_distrib.log_prob(action)
