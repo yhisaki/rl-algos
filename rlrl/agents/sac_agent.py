@@ -5,6 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from rlrl.q_funcs.clipped_double_qf import ClippedDoubleQF
 from rlrl.policies.squashed_gaussian_policy import SquashedGaussianPolicy
+from rlrl.nn.contexts import evaluating
 
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward", "mask"))
 
