@@ -9,7 +9,6 @@ def _eval_onece(args: Tuple[Any, Env]):
     policy, env = args
     state = env.reset()
     reward_sum = 0
-    i = 0
     done = False
     with torch.no_grad():
         while not done:
@@ -17,8 +16,7 @@ def _eval_onece(args: Tuple[Any, Env]):
             state, reward, done, _ = env.step(action.cpu().numpy())
             _, reward, done, _ = env.step(action)
             reward_sum += reward
-            i += 1
-    return reward_sum, env.seed()
+    return reward_sum
 
 
 def eval_determistic_policy(policy, env: Env, n_times: int = 1):
