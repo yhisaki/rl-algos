@@ -20,3 +20,6 @@ class Lambda(nn.Module):
 
     def forward(self, x):
         return self.lambd(x)
+
+    def __repr__(self):
+        return f"Lambda({self.lambd.__name__})"
