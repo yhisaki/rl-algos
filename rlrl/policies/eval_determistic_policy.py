@@ -22,7 +22,7 @@ def _eval_onece(args: Tuple[Any, Env]):
 
 
 def eval_determistic_policy(policy, env: Env, n_times: int = 1):
-    rewards_sum_list = [_eval_onece(policy, env) for _ in range(n_times)]
+    rewards_sum_list = [_eval_onece((policy, env)) for _ in range(n_times)]
     return sum(rewards_sum_list)
 
 
