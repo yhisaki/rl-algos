@@ -14,7 +14,6 @@ def _eval_onece(args: Tuple[Any, Env]):
         while not done:
             action = policy(torch.tensor(state, dtype=torch.float32))
             state, reward, done, _ = env.step(action.cpu().numpy())
-            _, reward, done, _ = env.step(action)
             reward_sum += reward
     return reward_sum
 
