@@ -1,12 +1,18 @@
-from rlrl.nn.lmbda import Lambda
 from rlrl.nn.build_simple_linear_sequential import build_simple_linear_sequential
-from rlrl.nn.contexts import evaluating, device_placement
+from rlrl.nn.concat_state_action import ConcatStateAction
+from rlrl.nn.stochanic_head import StochanicHeadBase, determistic, to_determistic, to_stochanic
+from rlrl.nn.contexts import evaluating
+from rlrl.nn.lmbda import Lambda
 from rlrl.nn.paramter_resetter import parameter_resetter
 
 __all__ = [
-    "Lambda",
     "build_simple_linear_sequential",
+    "ConcatStateAction",
+    "StochanicHeadBase",
+    "determistic",
+    "to_determistic",
+    "to_stochanic",
+    "Lambda",
     "evaluating",
-    "device_placement",
     "parameter_resetter",
 ]

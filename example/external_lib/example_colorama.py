@@ -1,6 +1,5 @@
 import colorama
-from colorama import Fore, Back, Style
-
+from colorama import Back, Fore, Style
 
 if __name__ == "__main__":
     # Initializes Colorama

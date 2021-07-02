@@ -1,9 +1,3 @@
-"""ReplayBufferの抽象クラス．
-  [pfrl.replay_buffer.AbstractReplayBuffer]
-  (https://github.com/pfnet/pfrl/blob/0639d2f4d0317a01e85978fa5c0c60a04f0cff33/pfrl/replay_buffer.py#L15)
-  をトレースしている
-
-"""
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
@@ -12,6 +6,7 @@ class AbstractReplayBuffer(object, metaclass=ABCMeta):
     """Defines a common interface of replay buffer.
     You can append transitions to the replay buffer and later sample from it.
     Replay buffers are typically used in experience replay.
+    (copy from https://github.com/pfnet/pfrl/blob/master/pfrl/replay_buffer.py)
     """
 
     @abstractmethod

@@ -1,13 +1,18 @@
-from collections import namedtuple
-from rlrl.utils.get_module_device import get_module_device
-import torch
-from torch import nn
-import torch.nn.functional as F
-from rlrl.q_funcs.clipped_double_qf import ClippedDoubleQF
-from rlrl.policies.squashed_gaussian_policy import SquashedGaussianPolicy
-from rlrl.nn.contexts import evaluating
+import copy
+from typing import Any, Optional, Tuple, Type, Union
 
-Transition = namedtuple("Transition", ("state", "action", "next_state", "reward", "mask"))
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import distributions, nn
+from torch.optim import Optimizer, Adam
+from torch import cuda
+
+import rlrl
+from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
+from rlrl.nn import evaluating, StochanicHeadBase
+from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 
 
 class TemperatureHolder(nn.Module):
@@ -17,8 +22,9 @@ class TemperatureHolder(nn.Module):
         initial_log_temperature (float): Initial value of log(temperature).
     """
 
-    def __init__(self, initial_log_temperature=0):
-        super().__init__()
+    def __init__(self, initial_log_temperature: float = 0.0):
+        super(TemperatureHolder, self).__init__()
+        self.initial_log_temperature_value = initial_log_temperature
         self.log_temperature = nn.Parameter(
             torch.tensor(initial_log_temperature, dtype=torch.float32)
         )
@@ -27,90 +33,294 @@ class TemperatureHolder(nn.Module):
         """Return a temperature as a torch.Tensor."""
         return torch.exp(self.log_temperature)
 
-    def to_float(self):
-        with torch.no_grad():
-            return float(self())
+    def reset_parameters(self):
+        self.log_temperature = nn.Parameter(
+            torch.tensor(self.initial_log_temperature_value, dtype=torch.float32)
+        )
 
 
-def calc_q_loss(
-    batch: Transition,
-    policy: torch.nn.Module,
-    alpha: torch.Tensor,
-    gamma: float,
-    cdqf: ClippedDoubleQF,
-    cdqf_target: ClippedDoubleQF,
-) -> torch.Tensor:
-    """Evaluation function of Q function in SAC
+class SquashedDiagonalGaussianHead(StochanicHeadBase):
+    def __init__(self):
+        super().__init__()
 
-    Args:
-        batch (Transition): Replay Buffer
-        policy (torch.nn.Module): Policy. policy.forward(s) returns torch.distribution
-        alpha (torch.Tensor): temperature.
-        gamma (float): discount rate
-        cdqf (ClippedDoubleQF): clipped double q function
-        cdqf_target (ClippedDoubleQF): target clipped double q function
+    def forward_stochanic(self, x):
+        mean, log_scale = torch.chunk(x, 2, dim=x.dim() // 2)
+        log_scale = torch.clamp(log_scale, -20.0, 2.0)
+        var = torch.exp(log_scale * 2)
+        base_distribution = distributions.Independent(
+            distributions.Normal(loc=mean, scale=torch.sqrt(var)), 1
+        )
+        # cache_size=1 is required for numerical stability
+        # https://pytorch.org/docs/stable/distributions.html#torch.distributions.transformed_distribution.TransformedDistribution
+        return distributions.transformed_distribution.TransformedDistribution(
+            base_distribution,
+            [
+                distributions.transforms.TanhTransform(cache_size=1),
+            ],
+        )
 
-    Returns:
-        torch.Tensor: [description]
-    """
-    with torch.no_grad():
-        next_action_distrib = policy(batch.next_state)
-        next_action = next_action_distrib.sample()
-        next_log_prob = next_action_distrib.log_prob(next_action)
-        next_q = cdqf_target(batch.next_state, next_action)
-        entropy_term = alpha * next_log_prob[..., None]
-        q_target = batch.reward + batch.mask * gamma * torch.flatten(next_q - entropy_term)
-
-    q0 = torch.flatten(cdqf[0](batch.state, batch.action))
-    q1 = torch.flatten(cdqf[1](batch.state, batch.action))
-
-    loss = F.mse_loss(q0, q_target) + F.mse_loss(q1, q_target)
-    return loss
+    def forward_determistic(self, x):
+        mean, _ = torch.chunk(x, 2, dim=x.dim() // 2)
+        return self.loc + self.scale * torch.tanh(mean)
 
 
-def calc_policy_loss(
-    batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, cdq: ClippedDoubleQF
-) -> torch.Tensor:
+class SacAgent(AgentBase, AttributeSavingMixin):
 
-    action_distrib = policy(batch.state)
-    action = action_distrib.rsample()
-    log_prob = action_distrib.log_prob(action)
-    q = cdq.forward(batch.state, action)
-    loss = (alpha * log_prob - q.flatten()).mean()
-    return loss
+    saved_attributes = (
+        "q1",
+        "q2",
+        "q1_target",
+        "q2_target",
+        "policy_optimizer",
+        "q1_optimizer",
+        "q2_optimizer",
+        "temperature_holder",
+        "temperature_optimizer",
+    )
 
+    def __init__(
+        self,
+        dim_state: int,
+        dim_action: int,
+        q1: Optional[nn.Module] = None,
+        q2: Optional[nn.Module] = None,
+        q_optimizer_class: Type[Optimizer] = Adam,
+        q_optimizer_kwargs: dict = {"lr": 1e-3},
+        policy: Optional[nn.Module] = None,
+        policy_optimizer_class: Type[Optimizer] = Adam,
+        policy_optimizer_kwargs: dict = {"lr": 1e-3},
+        temperature_holder: nn.Module = TemperatureHolder(),
+        temperature_optimizer_class: Type[Optimizer] = Adam,
+        temperature_optimizer_kwargs: dict = {"lr": 1e-3},
+        target_entropy: Optional[float] = None,
+        replay_buffer: ReplayBuffer = ReplayBuffer(1e6),
+        batch_size: int = 256,
+        gamma: float = 0.99,
+        device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
+        **kwargs
+    ):
+        if isinstance(device, str):
+            device = torch.device(device)
+        self.device = device
 
-def calc_temperature_loss(
-    batch: Transition, policy: SquashedGaussianPolicy, alpha: torch.Tensor, target_entropy: float
-) -> torch.Tensor:
+        self.dim_state = dim_state
+        self.dim_action = dim_action
 
-    with torch.no_grad():
-        action_distrib = policy(batch.state)
-        action = action_distrib.sample()
-        log_prob = action_distrib.log_prob(action)
+        # configure Q
+        if q1 is None:
+            self.q1 = nn.Sequential(
+                rlrl.nn.ConcatStateAction(),
+                nn.Linear(self.dim_state + self.dim_action, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, 1),
+            ).to(self.device)
+            self.q1.apply(SacAgent.default_network_initializer)
+        else:
+            self.q1 = q1.to(self.device)
+        if q2 is None:
+            self.q2 = nn.Sequential(
+                rlrl.nn.ConcatStateAction(),
+                nn.Linear(self.dim_state + self.dim_action, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, 1),
+            ).to(self.device)
+            self.q2.apply(SacAgent.default_network_initializer)
+        else:
+            self.q2 = q2.to(self.device)
 
-    loss = -(alpha * (log_prob + target_entropy).detach()).mean()
-    return loss
+        self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
+        self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
 
+        self.q1_optimizer = q_optimizer_class(self.q1.parameters(), **q_optimizer_kwargs)
+        self.q2_optimizer = q_optimizer_class(self.q2.parameters(), **q_optimizer_kwargs)
 
-def get_action_and_entropy(state, policy, dev=None):
-    """sampling action from policy and state(numpy or list)
+        # configure Policy
+        if policy is None:
+            self.policy = nn.Sequential(
+                nn.Linear(self.dim_state, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.dim_action * 2),
+                SquashedDiagonalGaussianHead(),
+            ).to(self.device)
+            self.policy.apply(SacAgent.default_network_initializer)
+        else:
+            self.policy = policy.to(self.device)
 
-    Args:
-        state (numpy or list): [description]
-        policy ([type]): [description]
-        dev ([type]): [description]
+        self.policy_optimizer = policy_optimizer_class(
+            self.policy.parameters(), **policy_optimizer_kwargs
+        )
 
-    Returns:
-        [type]: [description]
-    """
-    if dev is None:
-        dev = get_module_device(policy)
-    with torch.no_grad(), evaluating(policy):
-        policy_distrib = policy(torch.tensor(state, dtype=torch.float32, device=dev))
-        action = policy_distrib.sample()
-        action_log_prob = policy_distrib.log_prob(action)
-        action_log_prob = action_log_prob.cpu().numpy()
-        action = action.cpu().numpy()
+        # configure Temperature
+        self.temperature_holder = temperature_holder.to(self.device)
+        self.temperature_optimizer = temperature_optimizer_class(
+            self.temperature_holder.parameters(), **temperature_optimizer_kwargs
+        )
 
-    return action, -action_log_prob
+        if target_entropy is None:
+            self.target_entropy = -float(self.dim_action)
+        else:
+            self.target_entropy = float(target_entropy)
+
+        # configure Replay Buffer
+        self.replay_buffer = replay_buffer
+        self.batch_size = batch_size
+
+        # discount factor
+        self.gamma = gamma
+        if not ((0.0 < self.gamma) & (self.gamma < 1.0)):
+            raise ValueError("The discount rate must be greater than zero and less than one.")
+
+    def act(
+        self,
+        state: np.ndarray,
+        compute_entropy: bool = False,
+    ) -> np.ndarray:
+        state = torch.tensor(state).to(self.device).requires_grad_(False)
+        _action: Union[torch.Tensor, distributions.Distribution] = self.policy(state)
+        if isinstance(_action, distributions.Distribution):
+            action: torch.Tensor = _action.sample()
+            if compute_entropy:
+                self.entropy = float(_action.log_prob(action))
+        elif isinstance(_action, torch.Tensor):
+            action = _action
+        action = action.detach().cpu().numpy()
+        return action
+
+    def observe(self, state, next_state, action, reward, terminal):
+        self.replay_buffer.append(
+            state=state,
+            next_state=next_state,
+            action=action,
+            reward=reward,
+            terminal=terminal,
+        )
+
+    def update(self):
+        sampled = self.replay_buffer.sample(self.batch_size)
+        self.batch = TorchTensorBatch(**sampled, device=self.device)
+        self.update_q(self.batch)
+        self.update_policy_and_temperature(self.batch)
+
+    def update_q(self, batch: TorchTensorBatch):
+        self.q1_loss, self.q2_loss = SacAgent.compute_q_loss(
+            batch=batch,
+            policy=self.policy,
+            temperature=float(self.temperature_holder()),
+            gamma=self.gamma,
+            q1=self.q1,
+            q2=self.q2,
+            q1_target=self.q1_target,
+            q2_target=self.q2_target,
+        )
+        self.q1_optimizer.zero_grad()
+        self.q1_loss.backward()
+        self.q1_optimizer.step()
+
+        self.q2_optimizer.zero_grad()
+        self.q2_loss.backward()
+        self.q2_optimizer.step()
+
+    def update_policy_and_temperature(self, batch):
+        self.policy_loss, self.temperature_loss = SacAgent.compute_policy_and_temperature_loss(
+            batch, self.policy, self.temperature_holder, self.q1, self.q2, self.target_entropy
+        )
+
+        self.policy_optimizer.zero_grad()
+        self.policy_loss.backward()
+        self.policy_optimizer.step()
+
+        self.temperature_optimizer.zero_grad()
+        self.temperature_loss.backward()
+        self.temperature_optimizer.step()
+
+    @property
+    def config(self):
+        return dict(
+            replay_buffer_capacity=self.replay_buffer.capacity,
+            policy=self.policy,
+            q=self.q1,
+            batch_size=self.batch_size,
+            gamma=self.gamma,
+            target_entropy=self.target_entropy,
+            device=self.device,
+        )
+
+    @staticmethod
+    def configure_agent_from_gym(env, **kwargs):
+        """state space must be a 1d vector"""
+        return SacAgent(
+            dim_state=env.observation_space.shape[0],
+            dim_action=env.action_space.shape[0],
+            **kwargs,
+        )
+
+    @staticmethod
+    @torch.no_grad()
+    def default_network_initializer(layer):
+        if isinstance(layer, nn.Linear):
+            nn.init.orthogonal_(layer.weight, gain=np.sqrt(1.0 / 3.0))
+            nn.init.zeros_(layer.bias)
+
+    @staticmethod
+    def compute_q_loss(
+        batch: Union[TorchTensorBatch, Any],
+        policy: nn.Module,
+        temperature: float,
+        gamma: float,
+        q1: nn.Module,
+        q2: nn.Module,
+        q1_target: nn.Module,
+        q2_target: nn.Module,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        with torch.no_grad(), evaluating(policy, q1_target, q2_target):
+            next_action_distrib: distributions.Distribution = policy(batch.next_state)
+            next_action = next_action_distrib.sample()
+            next_log_prob = next_action_distrib.log_prob(next_action)
+            next_q = torch.min(
+                q1_target((batch.next_state, next_action)),
+                q2_target((batch.next_state, next_action)),
+            )
+            entropy_term = temperature * next_log_prob[..., None]
+            q_target = batch.reward + batch.terminal.logical_not() * gamma * torch.flatten(
+                next_q - entropy_term
+            )
+
+        predicted_q1 = torch.flatten(q1((batch.state, batch.action)))
+        predicted_q2 = torch.flatten(q2((batch.state, batch.action)))
+
+        q1_loss = 0.5 * F.mse_loss(predicted_q1, q_target)
+        q2_loss = 0.5 * F.mse_loss(predicted_q2, q_target)
+        return q1_loss, q2_loss
+
+    @staticmethod
+    def compute_policy_and_temperature_loss(
+        batch: TorchTensorBatch,
+        policy: nn.Module,
+        temperature_holder: TemperatureHolder,
+        q1: nn.Module,
+        q2: nn.Module,
+        entropy_target: float,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        action_distrib: distributions.Distribution = policy(batch.state)
+        action = action_distrib.rsample()
+        log_prob: torch.Tensor = action_distrib.log_prob(action)
+        q: torch.Tensor = torch.min(q1((batch.state, action)), q2((batch.state, action)))
+        policy_loss = (float(temperature_holder()) * log_prob - q.flatten()).mean()
+
+        temperature_loss = SacAgent.compute_temperature_loss(
+            log_prob.detach(), temperature_holder, entropy_target
+        )
+        return policy_loss, temperature_loss
+
+    @staticmethod
+    def compute_temperature_loss(
+        log_prob: torch.Tensor, temperature: TemperatureHolder, target_entropy: float
+    ) -> torch.Tensor:
+        loss = -(temperature() * (log_prob + target_entropy)).mean()
+        return loss

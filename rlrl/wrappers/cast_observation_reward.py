@@ -1,7 +1,8 @@
 import gym
 import numpy as np
+from typing import Any
 
-# copy from https://github.com/pfnet/pfrl/blob/master/pfrl/wrappers/cast_observation.py
+# refer to https://github.com/pfnet/pfrl/blob/master/pfrl/wrappers/cast_observation.py
 
 
 class CastObservation(gym.ObservationWrapper):
@@ -23,6 +24,9 @@ class CastObservation(gym.ObservationWrapper):
         self.original_observation = observation
         return observation.astype(self.dtype, copy=False)
 
+    def __getattribute__(self, name: str) -> Any:
+        return super().__getattribute__(name)
+
 
 class CastObservationToFloat32(CastObservation):
     """Cast observations to float32, which is commonly used for NNs.
@@ -36,3 +40,15 @@ class CastObservationToFloat32(CastObservation):
 
     def __init__(self, env):
         super().__init__(env, np.float32)
+
+
+class CastRewardToFloat(gym.RewardWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def reward(self, reward):
+        self.original_reward = reward
+        return float(reward)
+
+    def __getattribute__(self, name: str) -> Any:
+        return super().__getattribute__(name)

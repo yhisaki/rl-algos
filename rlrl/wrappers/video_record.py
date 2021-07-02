@@ -5,23 +5,29 @@ from gym.core import Wrapper, Env
 
 
 class NumpyArrayMonitor(Wrapper):
-    def __init__(self, env: Env) -> None:
+    def __init__(self, env: Env, enable_pyvirtualdisplay=False) -> None:
         super().__init__(env)
         self.frames: List[np.ndarray] = []
         self.is_recording = False
+        self.enable_pyvirtualdisplay = enable_pyvirtualdisplay
+        if enable_pyvirtualdisplay:
+            from pyvirtualdisplay import Display
 
-    def reset(self, **kwargs):
+            self.d = Display(visible=False, backend="xvfb")
+
+    def reset(self, start_record=False, **kwargs):
         self.frames.clear()
-        self.is_recording = False
+        if start_record:
+            self.start_recording()
         return self.env.reset(**kwargs)
 
     def step(self, action):
         if self.is_recording:
-            self.capture_frame()
+            self._capture_frame()
         observation, reward, done, info = self.env.step(action)
         return observation, reward, done, info
 
-    def capture_frame(self):
+    def _capture_frame(self):
         frame = self.env.render(mode="rgb_array").copy()
         # frame shape is (height, width, rgb)
         self.frames.append(frame.transpose(2, 0, 1))  # (rgb, height, width)
@@ -31,6 +37,11 @@ class NumpyArrayMonitor(Wrapper):
 
     def start_recording(self):
         self.is_recording = True
+        if self.enable_pyvirtualdisplay:
+            self.d.start()
+
+    def is_frames_empty(self):
+        return len(self.frames) == 0
 
     def save_to_file(self, filename, fps=60):
         import cv2
