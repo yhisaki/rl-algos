@@ -1,5 +1,4 @@
 import argparse
-from pprint import pprint
 from typing import Optional
 
 import gym
@@ -7,6 +6,7 @@ import gym
 import wandb
 from rlrl.agents import SacAgent
 from rlrl.utils import is_state_terminal, manual_seed
+from rlrl.experiments import GymInteractions
 from rlrl.wrappers import (
     CastObservationToFloat32,
     CastRewardToFloat,
@@ -36,105 +36,84 @@ def train_sac():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--t_init", default=int(1e4), type=int)
     parser.add_argument("--save_video_interval", default=None, type=int)
-    arg = parser.parse_args()
+    parser.add_argument("--save_agent", default=False, type=bool)
+    args = parser.parse_args()
 
-    run = wandb.init(project="test")
+    run = wandb.init(project="test_example_sac")
     conf: wandb.Config = run.config
 
-    conf.env_id = arg.env_id
-    conf.max_step = arg.max_step
-    conf.seed = arg.seed
-    conf.gamma = arg.gamma
+    conf.update(args)
 
     # fix seed
-    if arg.seed is not None:
-        manual_seed(arg.seed)
+    if args.seed is not None:
+        manual_seed(args.seed)
 
     # make environment
-    env = make_env(arg.env_id, arg.seed, arg.save_video_interval is not None)
+    env = make_env(args.env_id, args.seed, args.save_video_interval is not None)
 
-    sac_agent = SacAgent.configure_agent_from_gym(env, gamma=arg.gamma)
+    # make agent
+    sac_agent = SacAgent.configure_agent_from_gym(env, gamma=args.gamma)
 
-    pprint(sac_agent.config)
+    print(sac_agent)
 
-    # initialize
-    total_step = 0
-    total_episode_num = 0
+    # ------------------------ START INTERACTING WITH THE ENVIRONMENT ------------------------
+    try:
+        total_step = 0
+        total_epi = 0
 
-    state = env.reset()
-    step = 0
-    done = False
-    reward_sum = 0
+        # Start Sampling
+        def random_actor(state):
+            return env.action_space.sample()
 
-    if arg.save_video_interval is not None:
-        env.start_recording()
+        if args.save_video_interval is not None:
+            env.start_recording()  # save the video wit random action only the first time
 
-    print("sampling experience through random actions")
-    while total_step < arg.t_init:
-        # sample action
-        action = env.action_space.sample()
+        print("sampling experience through random actions")
 
-        # enviroment interaction
-        next_state, reward, done, _ = env.step(action)
-        total_step += 1
-        step += 1
-        reward_sum += reward
-
-        # check is state terminal
-        terminal = is_state_terminal(env, step, done)
-
-        # observe
-        sac_agent.observe(state, next_state, action, reward, terminal)
-
-        # update state
-        state = next_state
-
-        if done:
-
-            state = env.reset()
-            step = 0
-            done = False
-            reward_sum = 0
-
-            log_data = {"reward_sum": reward_sum}
-
-            if not env.is_frames_empty():
-                log_data.update(
-                    {
-                        "video/random_action": wandb.Video(
-                            env.get_frames_array(), fps=60, format="mp4"
-                        )
-                    }
-                )
-
-            wandb.log(log_data, step=total_step)
-
-            total_episode_num += 1
-    print("done")
-
-    print("start training")
-    while total_step < conf.max_step:
-        done = False
-
-        state = env.reset()
-        step = 0
-
-        reward_sum = 0
-
-        while not done:
-
-            action = sac_agent.act(state)
-            next_state, reward, done, _ = env.step(action)
+        interactions = GymInteractions(env, random_actor, max_step=args.t_init)
+        for step, state, next_state, action, reward, done in interactions:
+            total_step += 1
             terminal = is_state_terminal(env, step, done)
+            sac_agent.observe(state, next_state, action, reward, terminal)
 
+            if done:
+                total_epi += 1
+                log_data = {"reward_sum": interactions.reward_sum}
+                if isinstance(env, NumpyArrayMonitor) and not env.is_frames_empty():
+                    log_data.update({"video": wandb.Video(env.frames, fps=60, format="mp4")})
+                wandb.log(log_data, step=total_step)
+        print("sampling is finished\n\n")
+
+        # Start Training
+        def agent_actor(state):
+            return sac_agent.act(state)
+
+        interactions = GymInteractions(env, agent_actor, max_step=args.max_step)
+
+        for step, state, next_state, action, reward, done in interactions:
+            total_step += 1
+            terminal = is_state_terminal(env, step, done)
             sac_agent.observe(state, next_state, action, reward, terminal)
             sac_agent.update()
 
-            state = next_state
+            if done:
+                total_epi += 1
+                log_data = {
+                    "reward_sum": interactions.reward_sum,
+                    "loss/q": sac_agent.q1_loss + sac_agent.q2_loss,
+                    "loss/policy": sac_agent.policy_loss,
+                }
+                # if isinstance(env, NumpyArrayMonitor) and not env.is_frames_empty():
+                #     log_data.update({"video": wandb.Video(env.frames, fps=60, format="mp4")})
+                wandb.log(log_data, step=total_step)
+                print(f"Epi : {total_epi}, Reward Sum : {interactions.reward_sum}", flush=True)
 
-            reward_sum += reward
-            total_step += 1
+    finally:
+        if args.save_agent:
+            sac_agent.save(wandb.run.dir + "/agent")
 
 
 if __name__ == "__main__":
+    # python3 rlrl/example/agents/example_sac.py --env_id "Pendulum-v0" --seed 0
+    # nohup python3 rlrl/example/agents/example_sac.py --env_id "Swimmer-v2" --seed 0 --gamma 0.997 &
     train_sac()

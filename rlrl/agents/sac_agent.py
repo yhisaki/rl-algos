@@ -1,18 +1,17 @@
 import copy
 from typing import Any, Optional, Tuple, Type, Union
 
-
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import distributions, nn
-from torch.optim import Optimizer, Adam
-from torch import cuda
+from torch import cuda, distributions, nn
+from torch.optim import Adam, Optimizer
 
 import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
-from rlrl.nn import evaluating, StochanicHeadBase
+from rlrl.nn import StochanicHeadBase, evaluating
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
+from rlrl.utils import synchronize_parameters
 
 
 class TemperatureHolder(nn.Module):
@@ -96,8 +95,9 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         replay_buffer: ReplayBuffer = ReplayBuffer(1e6),
         batch_size: int = 256,
         gamma: float = 0.99,
+        tau: float = 5e-3,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
-        **kwargs
+        **kwargs,
     ):
         if isinstance(device, str):
             device = torch.device(device)
@@ -176,6 +176,9 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         if not ((0.0 < self.gamma) & (self.gamma < 1.0)):
             raise ValueError("The discount rate must be greater than zero and less than one.")
 
+        # soft update parameter
+        self.tau = tau
+
     def act(
         self,
         state: np.ndarray,
@@ -206,6 +209,7 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         self.batch = TorchTensorBatch(**sampled, device=self.device)
         self.update_q(self.batch)
         self.update_policy_and_temperature(self.batch)
+        self.sync_target_network()
 
     def update_q(self, batch: TorchTensorBatch):
         self.q1_loss, self.q2_loss = SacAgent.compute_q_loss(
@@ -239,16 +243,43 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         self.temperature_loss.backward()
         self.temperature_optimizer.step()
 
-    @property
-    def config(self):
-        return dict(
-            replay_buffer_capacity=self.replay_buffer.capacity,
-            policy=self.policy,
-            q=self.q1,
-            batch_size=self.batch_size,
-            gamma=self.gamma,
-            target_entropy=self.target_entropy,
-            device=self.device,
+    def sync_target_network(self):
+        """Synchronize target network with current network."""
+        synchronize_parameters(
+            src=self.q1,
+            dst=self.q1_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q2,
+            dst=self.q2_target,
+            method="soft",
+            tau=self.tau,
+        )
+
+    def __str__(self) -> str:
+        from rlrl.utils.dict2colorized_string import dict2colorized_string
+
+        title = "============== Soft Actor Critic =============="
+        return dict2colorized_string(
+            title,
+            {
+                "Policy": {"Network": self.q1, "Optimaizer": self.q1_optimizer},
+                "Q Functions": {
+                    "Q1": {"Network": self.q1, "Optimaizer": self.q1_optimizer},
+                    "Q2": {"Network": self.q2, "Optimaizer": self.q2_optimizer},
+                },
+                "Temperature": {
+                    "Network": self.temperature_holder,
+                    "Optimizer": self.temperature_optimizer,
+                },
+                "gamma": self.gamma,
+                "target entropy": self.target_entropy,
+                "batch size": self.batch_size,
+                "replay buffer capacity": self.replay_buffer.capacity,
+                "device": self.device,
+            },
         )
 
     @staticmethod
