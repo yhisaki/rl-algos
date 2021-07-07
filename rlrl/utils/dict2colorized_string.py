@@ -9,6 +9,10 @@ def _green(string):
     return "\033[32m" + string + "\033[0m"
 
 
+def _white(string):
+    return "\033[37m" + string + "\033[0m"
+
+
 def dict2colorized_string(title: str, d: dict):
     """[summary]
 
@@ -46,12 +50,12 @@ def dict2colorized_string(title: str, d: dict):
     return _blue(title) + "\n" + _dic2str(d)
 
 
-def _dic2str(d: dict, depth=0):
+def _dic2str(d: dict, depth=0) -> str:
     string = ""
     for key, value in d.items():
         if isinstance(value, dict):
             string += _green(f"+ {key}:") + "\n" + indent(_dic2str(value, depth + 1), "    ")
         else:
-            string += _green(f"+ {key}:") + "\n" + indent(str(value), "  ") + "\n"
+            string += _green(f"+ {key}:") + "\n" + _white(indent(str(value), "  ")) + "\n"
 
     return string

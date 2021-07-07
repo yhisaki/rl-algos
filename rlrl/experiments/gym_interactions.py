@@ -60,7 +60,6 @@ class GymInteractions(Iterator):
             self.reward_sum = 0
 
         if self.is_finishe():
-            print("stop iter")
             raise StopIteration()
 
         state = self.state
