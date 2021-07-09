@@ -1,29 +1,11 @@
 import argparse
-from typing import Optional
-import gym
 
 import wandb
+import rlrl
 from rlrl.agents import SacAgent
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.experiments import GymInteractions
-from rlrl.wrappers import (
-    CastObservationToFloat32,
-    CastRewardToFloat,
-    NormalizeActionSpace,
-    NumpyArrayMonitor,
-)
-
-
-def make_env(env_id: str, seed: Optional[int] = None, monitor: bool = False, monitor_args={}):
-    env = gym.make(env_id)
-    env = NormalizeActionSpace(CastRewardToFloat(CastObservationToFloat32(env)))
-    if seed is not None:
-        env.seed(seed)
-        env.action_space.seed(seed)
-        env.observation_space.seed(seed)
-    if monitor:
-        env = NumpyArrayMonitor(env, **monitor_args)
-    return env
+from rlrl.wrappers import make_env
 
 
 def train_sac():
@@ -92,7 +74,7 @@ def train_sac():
                         "loss/temperature": sac_agent.temperature_loss,
                     }
 
-                if isinstance(env, NumpyArrayMonitor) and not env.is_frames_empty():
+                if isinstance(env, rlrl.wrappers.NumpyArrayMonitor) and not env.is_frames_empty():
                     log_data.update({"video": wandb.Video(env.frames, fps=60, format="mp4")})
                     print("save video")
                 print(f"Epi : {interactions.total_step}, Reward Sum : {interactions.reward_sum}")
