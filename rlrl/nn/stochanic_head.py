@@ -1,8 +1,6 @@
 from typing import Union
 from torch import distributions, nn
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
-
 import torch
 
 
@@ -34,16 +32,3 @@ def to_stochanic(m: nn.Module):
 def to_determistic(m: nn.Module):
     if isinstance(m, StochanicHeadBase):
         m.is_stochanic = False
-
-
-@contextmanager
-def determistic(stochanic_policies):
-    istrains = [m.training for m in stochanic_policies]
-    try:
-        for m in stochanic_policies:
-            m.eval()
-            yield m
-    finally:
-        for m, istrain in zip(stochanic_policies, istrains):
-            if istrain:
-                m.train()

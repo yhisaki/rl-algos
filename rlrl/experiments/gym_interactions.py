@@ -8,10 +8,10 @@ class GymInteractions(Iterator):
     Examples:
     >>> env = gym.make("Swimmer-v2")
     >>> def random_actor(state):
-            return env.action_space.sample()
+    ...     return env.action_space.sample()
     >>> interactions = GymInteractions(env, random_actor, max_step=10000)
     >>> for step, state, next_state, action, reward, done in interactions:
-            ...
+    ...     ...
     """
 
     def __init__(
