@@ -9,7 +9,7 @@ from torch.optim import Adam, Optimizer
 
 import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
-from rlrl.nn import StochanicHeadBase, evaluating
+from rlrl.nn import StochanicHeadBase, evaluating, to_determistic, to_stochanic
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import synchronize_parameters
 
@@ -60,10 +60,10 @@ class SquashedDiagonalGaussianHead(StochanicHeadBase):
 
     def forward_determistic(self, x):
         mean, _ = torch.chunk(x, 2, dim=x.dim() // 2)
-        return self.loc + self.scale * torch.tanh(mean)
+        return torch.tanh(mean)
 
 
-class SacAgent(AgentBase, AttributeSavingMixin):
+class SacAgent(AttributeSavingMixin, AgentBase):
 
     saved_attributes = (
         "q1",
@@ -184,34 +184,38 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         state: np.ndarray,
         compute_entropy: bool = False,
     ) -> np.ndarray:
-        state = torch.tensor(state).to(self.device).requires_grad_(False)
-        _action: Union[torch.Tensor, distributions.Distribution] = self.policy(state)
-        if isinstance(_action, distributions.Distribution):
-            action: torch.Tensor = _action.sample()
+        state = torch.tensor(state, device=self.device, requires_grad=False)
+        if self.training:
+            action_distrib: distributions.Distribution = self.policy(state)
+            action: torch.Tensor = action_distrib.sample()
             if compute_entropy:
-                self.entropy = float(_action.log_prob(action))
-        elif isinstance(_action, torch.Tensor):
-            action = _action
+                self.entropy = float(action_distrib.log_prob(action))
+        else:
+            self.policy.apply(to_determistic)
+            action = self.policy(state)
+            self.policy.apply(to_stochanic)
+
         action = action.detach().cpu().numpy()
         return action
 
     def observe(self, state, next_state, action, reward, terminal):
-        self.replay_buffer.append(
-            state=state,
-            next_state=next_state,
-            action=action,
-            reward=reward,
-            terminal=terminal,
-        )
+        if self.training:
+            self.replay_buffer.append(
+                state=state,
+                next_state=next_state,
+                action=action,
+                reward=reward,
+                terminal=terminal,
+            )
 
     def update(self):
         sampled = self.replay_buffer.sample(self.batch_size)
         self.batch = TorchTensorBatch(**sampled, device=self.device)
-        self.update_q(self.batch)
-        self.update_policy_and_temperature(self.batch)
-        self.sync_target_network()
+        self._update_q(self.batch)
+        self._update_policy_and_temperature(self.batch)
+        self._sync_target_network()
 
-    def update_q(self, batch: TorchTensorBatch):
+    def _update_q(self, batch: TorchTensorBatch):
         self.q1_loss, self.q2_loss = SacAgent.compute_q_loss(
             batch=batch,
             policy=self.policy,
@@ -230,7 +234,7 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         self.q2_loss.backward()
         self.q2_optimizer.step()
 
-    def update_policy_and_temperature(self, batch):
+    def _update_policy_and_temperature(self, batch):
         self.policy_loss, self.temperature_loss = SacAgent.compute_policy_and_temperature_loss(
             batch, self.policy, self.temperature_holder, self.q1, self.q2, self.target_entropy
         )
@@ -243,7 +247,7 @@ class SacAgent(AgentBase, AttributeSavingMixin):
         self.temperature_loss.backward()
         self.temperature_optimizer.step()
 
-    def sync_target_network(self):
+    def _sync_target_network(self):
         """Synchronize target network with current network."""
         synchronize_parameters(
             src=self.q1,

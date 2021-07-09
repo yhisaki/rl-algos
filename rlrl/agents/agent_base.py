@@ -1,13 +1,12 @@
+import contextlib
+import os
 from abc import ABC, abstractmethod, abstractproperty
-from typing import List, Tuple, Any
+from typing import Any, List, Tuple
 
 # import cloudpickle
 # from gym.core import Env
 import torch
-from torch import nn
-from torch import cuda
-import os
-from gym import Env
+from torch import cuda, nn
 
 
 class AgentBase(ABC):
@@ -33,8 +32,48 @@ class AgentBase(ABC):
         """
         raise NotImplementedError()
 
-    # @abstractmethod
-    def evaluate(self, env: Env, **options) -> None:
+    @abstractmethod
+    def save(self, dirname: str) -> None:
+        """Save internal states.
+
+        Returns:
+            None
+        """
+        pass
+
+    @abstractmethod
+    def load(self, dirname: str) -> None:
+        """Load internal states.
+
+        Returns:
+            None
+        """
+        pass
+
+    @contextlib.contextmanager
+    def eval_mode(self):
+        orig_mode = self.training
+        try:
+            self.training = False
+            yield
+        finally:
+            self.training = orig_mode
+
+
+class BatchAgentBase(ABC):
+    """Abstract agent class."""
+
+    training = True
+
+    @abstractmethod
+    def batch_act(self, *args, **kwargs) -> Any:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def batch_observe(self, *args, **kwargs) -> None:
+        """
+        Observe consequences of the last action.(e.g. state, next_state, action, reward, terminal)
+        """
         raise NotImplementedError()
 
 
