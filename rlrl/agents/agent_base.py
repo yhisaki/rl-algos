@@ -1,6 +1,6 @@
 import contextlib
 import os
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import Any, List, Tuple
 
 # import cloudpickle
@@ -9,7 +9,7 @@ import torch
 from torch import cuda, nn
 
 
-class AgentBase(ABC):
+class AgentBase(object, metaclass=ABCMeta):
     """Abstract agent class."""
 
     training = True
@@ -60,7 +60,7 @@ class AgentBase(ABC):
             self.training = orig_mode
 
 
-class BatchAgentBase(ABC):
+class BatchAgentBase(object, metaclass=ABCMeta):
     """Abstract agent class."""
 
     training = True

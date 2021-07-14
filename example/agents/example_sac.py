@@ -16,13 +16,11 @@ def train_sac():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--t_init", default=int(1e4), type=int)
     parser.add_argument("--save_video_interval", default=None, type=int)
-    parser.add_argument("--save_agent", default=False, type=bool)
+    parser.add_argument("--save_agent", action="store_true")
     args = parser.parse_args()
 
-    run = wandb.init(project="test_example_sac")
+    run = wandb.init(project="rlrl_example", name="soft_actor_critic", tags=[args.env_id])
     conf: wandb.Config = run.config
-
-    conf.update(args)
 
     # fix seed
     if args.seed is not None:
@@ -38,6 +36,13 @@ def train_sac():
 
     # make agent
     sac_agent = SacAgent.configure_agent_from_gym(env, gamma=args.gamma)
+
+    # save conf
+    conf.env_id = args.env_id
+    conf.seed = args.seed
+    conf.max_step = args.max_step
+    conf.gamma = sac_agent.gamma
+    conf.agent_device = sac_agent.device
 
     print(sac_agent)
 
@@ -67,7 +72,7 @@ def train_sac():
                     log_data = {"reward_sum": interactions.reward_sum}
                 elif interactions.actor is agent_actor:
                     log_data = {
-                        "evaluation/reward_sum": interactions.reward_sum,
+                        "reward_sum": interactions.reward_sum,
                         "loss/q1": sac_agent.q1_loss,
                         "loss/q2": sac_agent.q2_loss,
                         "loss/policy": sac_agent.policy_loss,
