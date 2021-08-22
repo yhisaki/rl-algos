@@ -3,13 +3,13 @@ import gym
 from collections.abc import Iterator
 
 
-class GymInteractions(Iterator):
+class GymMDP(Iterator):
     """
     Examples:
     >>> env = gym.make("Swimmer-v2")
     >>> def random_actor(state):
     ...     return env.action_space.sample()
-    >>> interactions = GymInteractions(env, random_actor, max_step=10000)
+    >>> interactions = GymMDP(env, random_actor, max_step=10000)
     >>> for step, state, next_state, action, reward, done in interactions:
     ...     ...
     """

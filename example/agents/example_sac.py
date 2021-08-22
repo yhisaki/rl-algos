@@ -4,7 +4,7 @@ import wandb
 import rlrl
 from rlrl.agents import SacAgent
 from rlrl.utils import is_state_terminal, manual_seed
-from rlrl.experiments import GymInteractions
+from rlrl.experiments import GymMDP
 from rlrl.wrappers import make_env
 
 
@@ -55,7 +55,7 @@ def train_sac():
         def agent_actor(state):
             return sac_agent.act(state)
 
-        interactions = GymInteractions(env, random_actor, max_step=args.max_step)
+        interactions = GymMDP(env, random_actor, max_step=args.max_step)
         for step, state, next_state, action, reward, done in interactions:
             terminal = is_state_terminal(env, step, done)
             sac_agent.observe(state, next_state, action, reward, terminal)

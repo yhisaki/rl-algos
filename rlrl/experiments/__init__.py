@@ -1,4 +1,4 @@
-from rlrl.experiments.gym_interactions import GymInteractions
+from rlrl.experiments.gym_interactions import GymMDP
 
 
-__all__ = ["GymInteractions"]
+__all__ = ["GymMDP"]
