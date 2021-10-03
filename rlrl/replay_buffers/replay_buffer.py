@@ -1,8 +1,10 @@
-from typing import Optional
-from rlrl.collections.random_access_queue import RandomAccessQueue
-import pickle
 import collections
+import pickle
+from typing import Optional
+
+from rlrl.collections.random_access_queue import RandomAccessQueue
 from rlrl.utils.transpose_list_dict import transpose_list_dict
+
 from .abstract_replay_buffer import AbstractReplayBuffer
 
 

@@ -1,7 +1,9 @@
-from typing import Union
-from torch import distributions, nn
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from typing import Union
+
 import torch
+from torch import distributions, nn
 
 
 class StochanicHeadBase(nn.Module, ABC):
@@ -22,6 +24,24 @@ class StochanicHeadBase(nn.Module, ABC):
             return self.forward_stochanic(*args, **kwargs)
         else:
             return self.forward_determistic(*args, **kwargs)
+
+    @contextmanager
+    def deterministic(self):
+        try:
+            pre_state = self.is_stochanic
+            self.is_stochanic = False
+            yield self
+        finally:
+            self.is_stochanic = pre_state
+
+    @contextmanager
+    def stochanic(self):
+        try:
+            pre_state = self.is_stochanic
+            self.is_stochanic = False
+            yield self
+        finally:
+            self.is_stochanic = pre_state
 
 
 def to_stochanic(m: nn.Module):

@@ -1,8 +1,10 @@
+import logging
 from collections.abc import Iterator
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple, Union
 
-import gym
 import numpy as np
+from gym import Env
+from gym.vector.vector_env import VectorEnv
 
 
 class GymMDP(Iterator):
@@ -19,10 +21,11 @@ class GymMDP(Iterator):
 
     def __init__(
         self,
-        environment: gym.Env,
+        environment: Union[Env, VectorEnv],
         actor: Callable[[Any], Any],
         max_step: Optional[int] = None,
         max_episode: Optional[int] = None,
+        logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """[summary]
 
@@ -38,41 +41,83 @@ class GymMDP(Iterator):
         self.actor = actor
         self.max_step = max_step
         self.max_episode = max_episode
-        assert (max_step is None) ^ (max_episode is None)
 
-        self.total_step = 0
-        self.total_episode = 0
+        assert (max_step is None) ^ (
+            max_episode is None
+        ), "Either max_episode or max_step must be set to a value."
 
         self.state = self.env.reset()
 
-        if isinstance(self.env, gym.vector.vector_env.VectorEnv):
-            self.num_envs = self.env.num_envs
+        if isinstance(self.env, VectorEnv):
+            self.num_envs: int = self.env.num_envs
             self.is_vec_env = True
-            self.episode_step = np.zeros(self.num_envs, np.uint)
-            self.done = np.ones(self.num_envs, np.bool_)
-            self.reward_sum = np.zeros(self.num_envs, np.float32)
         else:
             self.num_envs = 1
             self.is_vec_env = False
-            self.episode_step = 0
-            self.done = False
-            self.reward_sum = 0
+
+        self.__total_step = np.zeros(self.num_envs, np.uint)
+        self.__total_episode = np.zeros(self.num_envs, np.uint)
+
+        self.__episode_step = np.zeros(self.num_envs, np.uint)
+        self.__episode_reward = np.zeros(self.num_envs, np.float32)  # reward sum per episode
+
+        self.__done = np.zeros(self.num_envs, np.bool_)
+        self.logger = logger
 
     def is_finish(self) -> bool:
         if self.max_step is not None:
-            return self.max_step <= self.total_step
+            return self.max_step <= self.__total_step.sum()
         elif self.max_episode is not None:
-            return self.max_episode <= self.total_episode
+            return self.max_episode <= self.__total_episode.sum()
 
-    def __next__(self):
-        if self.is_vec_env and any(self.done):
-            self.reward_sum *= np.invert(self.done)
-            self.episode_step *= np.invert(self.done)
-        elif not (self.is_vec_env) and self.done:
+    @property
+    def done(self):
+        if self.is_vec_env:
+            return self.__done
+        else:
+            return self.__done[0]
+
+    @done.setter
+    def done(self, val):
+        if self.is_vec_env:
+            self.__done = val
+        else:
+            self.__done[0] = val
+
+    @property
+    def episode_step(self):
+        if self.is_vec_env:
+            return self.__episode_step
+        else:
+            return self.__episode_step[0]
+
+    @property
+    def episode_reward(self):
+        if self.is_vec_env:
+            return self.__episode_reward
+        else:
+            return self.__episode_reward[0]
+
+    @property
+    def total_step(self):
+        if self.is_vec_env:
+            return self.__total_step
+        else:
+            return self.__total_step[0]
+
+    @property
+    def total_episode(self):
+        if self.is_vec_env:
+            return self.__total_episode
+        else:
+            return self.__total_episode[0]
+
+    def __next__(self) -> Tuple[np.ndarray, ...]:
+        if not (self.is_vec_env) and self.__done:
             self.state = self.env.reset()
-            self.done = False
-            self.episode_step = 0
-            self.reward_sum = 0
+
+        self.__episode_reward *= np.invert(self.__done)
+        self.__episode_step *= np.invert(self.__done)
 
         if self.is_finish():
             raise StopIteration()
@@ -81,12 +126,20 @@ class GymMDP(Iterator):
         action = self.actor(state)
         self.state, reward, self.done, _ = self.env.step(action)
 
-        if self.is_vec_env and any(self.done):
-            self.total_episode += np.count_nonzero(self.done)
-        elif not (self.is_vec_env) and self.done:
-            self.total_episode += 1
+        self.__total_episode += self.__done
+        self.__total_step += np.ones_like(self.__total_episode)
 
-        self.episode_step += np.ones_like(self.episode_step) if self.is_vec_env else 1
-        self.total_step += self.num_envs
-        self.reward_sum += reward
+        self.__episode_reward += reward
+        self.__episode_step += np.ones_like(self.__episode_step)
+
+        if self.__done.any():
+            done_env_index = np.where(self.__done)[0]
+            for idx in done_env_index:
+                self.logger.info(
+                    f"env : {idx}, "
+                    f"total_step = {self.__total_step[idx]}, "
+                    f"reward = {self.__episode_reward[idx]}, "
+                    f"step = {self.__episode_step[idx]}"
+                )
+
         return self.episode_step, state, self.state, action, reward, self.done

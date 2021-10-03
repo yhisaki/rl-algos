@@ -20,14 +20,4 @@ def transpose_list_dict(lst: List[Dict]) -> Dict:
     Returns:
         Dict: dictionary of list
     """
-    dct = {}
-    first = lst[0]
-
-    for first_key in first.keys():
-        dct[first_key] = []
-
-    for e in lst:
-        for key in dct.keys():
-            dct[key].append(e[key])
-
-    return dct
+    return {k: [dic[k] for dic in lst] for k in lst[0]}

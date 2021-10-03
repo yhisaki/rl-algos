@@ -69,10 +69,10 @@ def train_sac():
             if done:
 
                 if interactions.actor is random_actor:
-                    log_data = {"reward_sum": interactions.reward_sum}
+                    log_data = {"reward_sum": interactions.episode_reward}
                 elif interactions.actor is agent_actor:
                     log_data = {
-                        "reward_sum": interactions.reward_sum,
+                        "reward_sum": interactions.episode_reward,
                         "loss/q1": sac_agent.q1_loss,
                         "loss/q2": sac_agent.q2_loss,
                         "loss/policy": sac_agent.policy_loss,
@@ -82,7 +82,9 @@ def train_sac():
                 if isinstance(env, rlrl.wrappers.NumpyArrayMonitor) and not env.is_frames_empty():
                     log_data.update({"video": wandb.Video(env.frames, fps=60, format="mp4")})
                     print("save video")
-                print(f"Epi : {interactions.total_step}, Reward Sum : {interactions.reward_sum}")
+                print(
+                    f"Epi : {interactions.total_step}, Reward Sum : {interactions.episode_reward}"
+                )
                 wandb.log(log_data, step=interactions.total_step)
 
     finally:

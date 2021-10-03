@@ -18,3 +18,14 @@ class TorchTensorBatch(object):
         self.reward = self.reward.to(device)
         self.terminal = self.terminal.to(device)
         return self
+
+    def __len__(self):
+        batch_len = len(self.state)
+        assert (
+            batch_len
+            == len(self.next_state)
+            == len(self.action)
+            == len(self.reward)
+            == len(self.terminal)
+        )
+        return batch_len

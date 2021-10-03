@@ -11,6 +11,8 @@ def manual_seed(
     random_seed: Optional[int] = None,
     np_seed: Optional[int] = None,
 ):
+    if seed is None:
+        return
     torch.manual_seed(seed if torch_seed is None else torch_seed)
     random.seed(seed if random_seed is None else random_seed)
     np.random.seed(seed if np_seed is None else np_seed)

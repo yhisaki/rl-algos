@@ -1,7 +1,8 @@
 # from typing import Optional
-from typing import List, Optional
+from typing import Callable, List, Optional
+
 import numpy as np
-from gym.core import Wrapper, Env
+from gym.core import Env, Wrapper
 
 
 class NumpyArrayMonitor(Wrapper):
@@ -11,6 +12,7 @@ class NumpyArrayMonitor(Wrapper):
         enable_pyvirtualdisplay=False,
         interval_epi: Optional[int] = None,
         interval_step: Optional[int] = None,
+        record_cb: Optional[Callable[[np.ndarray], None]] = None,
     ) -> None:
         super().__init__(env)
         self.__frames: List[np.ndarray] = []
@@ -22,7 +24,7 @@ class NumpyArrayMonitor(Wrapper):
         # assert (interval_epi is not None) and (interval_step is not None)
         self.interval_epi = interval_epi
         self.interval_step = interval_step
-
+        self.record_cb = record_cb
         self.enable_pyvirtualdisplay = enable_pyvirtualdisplay
         if enable_pyvirtualdisplay:
             from pyvirtualdisplay import Display
@@ -63,6 +65,8 @@ class NumpyArrayMonitor(Wrapper):
     def stop_recording(self):
         if self.is_recording:
             self.is_recording = False
+            if self.record_cb is not None:
+                self.record_cb(self.frames())
 
     def is_frames_empty(self):
         return len(self.__frames) == 0

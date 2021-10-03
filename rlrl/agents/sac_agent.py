@@ -189,7 +189,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             action_distrib: distributions.Distribution = self.policy(state)
             action: torch.Tensor = action_distrib.sample()
             if compute_entropy:
-                self.entropy = float(action_distrib.log_prob(action))
+                self.entropy = action_distrib.log_prob(action).detach().cpu()
         else:
             self.policy.apply(to_determistic)
             action = self.policy(state)
