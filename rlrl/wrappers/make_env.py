@@ -9,7 +9,9 @@ from rlrl.wrappers.video_record import NumpyArrayMonitor
 
 def make_env(env_id: str, seed: Optional[int] = None, monitor: bool = False, monitor_args={}):
     env = gym.make(env_id)
-    env = NormalizeActionSpace(CastRewardToFloat32(CastObservationToFloat32(env)))
+    env = CastObservationToFloat32(env)
+    env = CastRewardToFloat32(env)
+    env = NormalizeActionSpace(env)
     if seed is not None:
         env.seed(seed)
         env.action_space.seed(seed)
