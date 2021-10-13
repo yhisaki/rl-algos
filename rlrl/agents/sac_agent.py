@@ -1,4 +1,5 @@
 import copy
+import logging
 from typing import Any, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -9,7 +10,7 @@ from torch.optim import Adam, Optimizer
 
 import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
-from rlrl.nn import StochanicHeadBase, evaluating, to_determistic, to_stochanic
+from rlrl.nn import StochanicHeadBase, evaluating
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import synchronize_parameters
 
@@ -96,9 +97,12 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         gamma: float = 0.99,
         tau: float = 5e-3,
+        num_random_act: int = 1e4,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
+        logger=logging.getLogger(__name__),
         **kwargs,
     ):
+        self.logger: logging.Logger = logger
         if isinstance(device, str):
             device = torch.device(device)
         self.device = device
@@ -152,6 +156,11 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         else:
             self.policy = policy.to(self.device)
 
+        self.policy_head: StochanicHeadBase = self.policy[-1]
+
+        if not isinstance(self.policy_head, StochanicHeadBase):
+            self.logger.warning("policy head is not stochasitic!!")
+
         self.policy_optimizer = policy_optimizer_class(
             self.policy.parameters(), **policy_optimizer_kwargs
         )
@@ -179,6 +188,8 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         # soft update parameter
         self.tau = tau
 
+        self.num_random_act = num_random_act
+
     def act(
         self,
         state: np.ndarray,
@@ -186,27 +197,34 @@ class SacAgent(AttributeSavingMixin, AgentBase):
     ) -> np.ndarray:
         state = torch.tensor(state, device=self.device, requires_grad=False)
         if self.training:
-            action_distrib: distributions.Distribution = self.policy(state)
-            action: torch.Tensor = action_distrib.sample()
-            if compute_entropy:
-                self.entropy = action_distrib.log_prob(action).detach().cpu()
+            if len(self.replay_buffer) <= self.num_random_act:
+                action = torch.rand(len(state), self.dim_action)
+            else:
+                action_distrib: distributions.Distribution = self.policy(state)
+                action: torch.Tensor = action_distrib.sample()
+                if compute_entropy:
+                    self.entropy = action_distrib.log_prob(action).detach().cpu()
         else:
-            self.policy.apply(to_determistic)
-            action = self.policy(state)
-            self.policy.apply(to_stochanic)
+            with self.policy_head.deterministic():
+                action = self.policy(state)
 
         action = action.detach().cpu().numpy()
         return action
 
-    def observe(self, state, next_state, action, reward, terminal):
+    def observe(self, states, next_states, actions, rewards, terminals):
         if self.training:
-            self.replay_buffer.append(
-                state=state,
-                next_state=next_state,
-                action=action,
-                reward=reward,
-                terminal=terminal,
-            )
+            for state, next_state, action, reward, terminal in zip(
+                states, next_states, actions, rewards, terminals
+            ):
+                self.replay_buffer.append(
+                    state=state,
+                    next_state=next_state,
+                    action=action,
+                    reward=reward,
+                    terminal=terminal,
+                )
+            if len(self.replay_buffer) > self.num_random_act:
+                self.update()
 
     def update(self):
         sampled = self.replay_buffer.sample(self.batch_size)

@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional, Tuple, Union
 import numpy as np
 from gym import Env
 from gym.vector.vector_env import VectorEnv
+from rlrl.wrappers.dummy_vec_env import DummyVectorEnvWrapper
 
 
 class GymMDP(Iterator):
@@ -46,78 +47,33 @@ class GymMDP(Iterator):
             max_episode is None
         ), "Either max_episode or max_step must be set to a value."
 
+        if not isinstance(self.env, VectorEnv):
+            self.env = DummyVectorEnvWrapper(self.env)
+            # dummy_env = _make()
+            # setattr(self.env, "spec", dummy_env.spec)
+
         self.state = self.env.reset()
 
-        if isinstance(self.env, VectorEnv):
-            self.num_envs: int = self.env.num_envs
-            self.is_vec_env = True
-        else:
-            self.num_envs = 1
-            self.is_vec_env = False
+        self.num_envs: int = self.env.num_envs
 
-        self.__total_step = np.zeros(self.num_envs, np.uint)
-        self.__total_episode = np.zeros(self.num_envs, np.uint)
+        self.total_step = np.zeros(self.num_envs, np.uint)
+        self.total_episode = np.zeros(self.num_envs, np.uint)
 
-        self.__episode_step = np.zeros(self.num_envs, np.uint)
-        self.__episode_reward = np.zeros(self.num_envs, np.float32)  # reward sum per episode
+        self.episode_step = np.zeros(self.num_envs, np.uint)
+        self.episode_reward = np.zeros(self.num_envs, np.float32)  # reward sum per episode
 
-        self.__done = np.zeros(self.num_envs, np.bool_)
+        self.done = np.zeros(self.num_envs, np.bool_)
         self.logger = logger
 
     def is_finish(self) -> bool:
         if self.max_step is not None:
-            return self.max_step <= self.__total_step.sum()
+            return self.max_step <= self.total_step.sum()
         elif self.max_episode is not None:
-            return self.max_episode <= self.__total_episode.sum()
-
-    @property
-    def done(self):
-        if self.is_vec_env:
-            return self.__done
-        else:
-            return self.__done[0]
-
-    @done.setter
-    def done(self, val):
-        if self.is_vec_env:
-            self.__done = val
-        else:
-            self.__done[0] = val
-
-    @property
-    def episode_step(self):
-        if self.is_vec_env:
-            return self.__episode_step
-        else:
-            return self.__episode_step[0]
-
-    @property
-    def episode_reward(self):
-        if self.is_vec_env:
-            return self.__episode_reward
-        else:
-            return self.__episode_reward[0]
-
-    @property
-    def total_step(self):
-        if self.is_vec_env:
-            return self.__total_step
-        else:
-            return self.__total_step[0]
-
-    @property
-    def total_episode(self):
-        if self.is_vec_env:
-            return self.__total_episode
-        else:
-            return self.__total_episode[0]
+            return self.max_episode <= self.total_episode.sum()
 
     def __next__(self) -> Tuple[np.ndarray, ...]:
-        if not (self.is_vec_env) and self.__done:
-            self.state = self.env.reset()
-
-        self.__episode_reward *= np.invert(self.__done)
-        self.__episode_step *= np.invert(self.__done)
+        self.episode_reward *= np.invert(self.done)
+        self.episode_step *= np.invert(self.done)
 
         if self.is_finish():
             raise StopIteration()
@@ -126,20 +82,20 @@ class GymMDP(Iterator):
         action = self.actor(state)
         self.state, reward, self.done, _ = self.env.step(action)
 
-        self.__total_episode += self.__done
-        self.__total_step += np.ones_like(self.__total_episode)
+        self.total_episode += self.done
+        self.total_step += np.ones_like(self.total_episode)
 
-        self.__episode_reward += reward
-        self.__episode_step += np.ones_like(self.__episode_step)
+        self.episode_reward += reward
+        self.episode_step += np.ones_like(self.episode_step)
 
-        if self.__done.any():
-            done_env_index = np.where(self.__done)[0]
+        if self.done.any():
+            done_env_index = np.where(self.done)[0]
             for idx in done_env_index:
                 self.logger.info(
                     f"env : {idx}, "
-                    f"total_step = {self.__total_step[idx]}, "
-                    f"reward = {self.__episode_reward[idx]}, "
-                    f"step = {self.__episode_step[idx]}"
+                    f"total_step = {self.total_step[idx]}, "
+                    f"reward = {self.episode_reward[idx]}, "
+                    f"step = {self.episode_step[idx]}"
                 )
 
         return self.episode_step, state, self.state, action, reward, self.done
