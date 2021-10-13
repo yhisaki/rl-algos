@@ -150,7 +150,6 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         self.recurrent = recurrent
         self.state_normalizer = state_normalizer
 
-        self.num_envs = 1
         self.memory = None
         self.gamma = gamma
         self.lambd = lambd
@@ -171,22 +170,28 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
 
     def observe(
         self,
-        state,
-        next_state,
-        action,
-        reward,
-        terminal,
-        reset,
+        states,
+        next_states,
+        actions,
+        rewards,
+        terminals,
+        resets,
         **kwargs,
     ):
         if self.memory is None:
-            if hasattr(terminal, "__len__"):
-                self.num_envs = len(terminal)
-            else:
-                self.num_envs = 1
+            self.num_envs = len(terminals)
             self.memory = [[[]] for _ in range(self.num_envs)]
 
-        if self.num_envs == 1:
+        for i, (state, next_state, action, reward, terminal, reset) in enumerate(
+            zip(
+                states,
+                next_states,
+                actions,
+                rewards,
+                terminals,
+                resets,
+            )
+        ):
             transition = dict(
                 state=state,
                 action=action,
@@ -195,22 +200,9 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 terminal=terminal,
                 **kwargs,
             )
-            self.memory[0][-1].append(transition)
+            self.memory[i][-1].append(transition)
             if reset:
-                self.memory[0].append([])
-        else:
-            for i in range(self.num_envs):
-                transition = dict(
-                    state=state[i],
-                    action=action[i],
-                    reward=reward[i],
-                    next_state=next_state[i],
-                    terminal=terminal[i],
-                    **kwargs,
-                )
-                self.memory[i][-1].append(transition)
-                if reset[i]:
-                    self.memory[i].append([])
+                self.memory[i].append([])
 
     def act(self, state):
         state = torch.tensor(state, device=self.device, requires_grad=False)

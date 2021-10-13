@@ -81,14 +81,14 @@ def train_trpo():
     )
 
     pre_update_step = 0
-    for step, state, next_state, action, reward, done in interactions:
+    for step, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
-            state=state,
-            next_state=next_state,
-            action=action,
-            reward=reward,
-            terminal=is_state_terminal(env, step, done),
-            reset=done,
+            states=states,
+            next_states=next_states,
+            actions=actions,
+            rewards=rewards,
+            terminals=is_state_terminal(env, step, dones),
+            resets=dones,
         )
 
         if (interactions.total_step.sum() - pre_update_step) >= 5000:
