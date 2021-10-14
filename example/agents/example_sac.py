@@ -1,7 +1,6 @@
 import argparse
 
 import wandb
-import rlrl
 from rlrl.agents import SacAgent
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.experiments import GymMDP
@@ -56,16 +55,6 @@ def train_sac():
         for step, state, next_state, action, reward, done in interactions:
             terminal = is_state_terminal(env, step, done)
             sac_agent.observe(state, next_state, action, reward, terminal)
-
-            if done:
-                log_data = {}
-                if isinstance(env, rlrl.wrappers.NumpyArrayMonitor) and not env.is_frames_empty():
-                    log_data.update({"video": wandb.Video(env.frames, fps=60, format="mp4")})
-                    print("save video")
-                print(
-                    f"Epi : {interactions.total_step}, Reward Sum : {interactions.episode_reward}"
-                )
-                wandb.log(log_data, step=interactions.total_step)
 
     finally:
         if args.save_agent:

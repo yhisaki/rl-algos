@@ -3,10 +3,10 @@ import logging
 from typing import Optional
 import gym
 
-import wandb
+# import wandb
 from rlrl.utils import manual_seed
 from rlrl.experiments import GymMDP
-from rlrl.agents.trpo_agent import TrpoAgent
+from rlrl.agents.atrpo_agent import AtrpoAgent
 from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
 from rlrl.utils import is_state_terminal
 from rlrl.wrappers import (
@@ -43,11 +43,9 @@ def train_trpo():
 
     parser = argparse.ArgumentParser()
 
-    wandb.init(project="trpo")
-
     # parser.add_argument("--gpu", action="store_true", default=False)
-    parser.add_argument("--env_id", type=str, default="Hopper-v2")
-    parser.add_argument("--num_envs", type=int, default=3)
+    parser.add_argument("--env_id", type=str, default="Swimmer-v2")
+    parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--log-level", type=int, default=logging.INFO)
     args = parser.parse_args()
@@ -64,13 +62,13 @@ def train_trpo():
     logger.info(f"action_space = {env.action_space}")
     logger.info(f"max_episode_steps = {env.spec.max_episode_steps}")
 
-    agent = TrpoAgent(
-        dim_state,
-        dim_action,
-        gamma=0.995,
+    agent = AtrpoAgent(
+        dim_state=dim_state,
+        dim_action=dim_action,
         entropy_coef=0.0,
         vf_epoch=5,
         conjugate_gradient_damping=1e-1,
+        update_interval=args.num_envs * 1000,
     )
 
     def actor(state):
@@ -79,7 +77,7 @@ def train_trpo():
     interactions = GymMDP(
         env,
         actor,
-        max_step=1e6,
+        max_step=1e7,
     )
 
     for step, states, next_states, actions, rewards, dones in interactions:

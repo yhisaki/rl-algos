@@ -99,3 +99,6 @@ class GymMDP(Iterator):
                 )
 
         return self.episode_step, state, self.state, action, reward, self.done
+
+    def get_statics(self):
+        return {}

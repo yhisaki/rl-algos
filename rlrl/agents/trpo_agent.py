@@ -1,21 +1,19 @@
 import collections
 import itertools
+import logging
 import random
 from logging import Logger, getLogger
-from typing import Iterable, Optional, Type, Union
+from typing import Iterable, Optional, Type, Union, List, Dict
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import autograd, cuda, distributions, nn
+from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
 from rlrl.nn import StochanicHeadBase
-
-# from rlrl.replay_buffers import TorchTensorBatch
-# from rlrl.utils.transpose_list_dict import transpose_list_dict
 from rlrl.nn.z_score_filter import ZScoreFilter
 from rlrl.utils import conjugate_gradient
 
@@ -34,22 +32,23 @@ class GaussianHeadWithStateIndependentCovariance(StochanicHeadBase):
         return x
 
 
-def _flatten_and_concat_variables(vs):
-    """Flatten and concat variables to make a single flat vector variable."""
-    return torch.cat([torch.flatten(v) for v in vs], dim=0)
-
-
-def _hessian_vector_product(flat_grads, params, vec):
-    """Compute hessian vector product efficiently by backprop."""
+def _hessian_vector_product(
+    flat_grads: torch.Tensor, params: Iterable[torch.Tensor], vec: torch.Tensor
+):
+    """
+    Compute hessian vector product efficiently by backprop.
+    Before executing this function, the parameter gradient must be initialized.
+    (zero_grad())
+    """
     vec = vec.detach()
-    grads = torch.autograd.grad(torch.sum(flat_grads * vec), params, retain_graph=True)
-    assert all(grad is not None for grad in grads), "The Hessian-vector product contains None."
-    return _flatten_and_concat_variables(grads)
+    torch.sum(flat_grads * vec).backward(retain_graph=True)
+    grads = nn.utils.convert_parameters.parameters_to_vector(parameters_grad(params))
+    return grads
 
 
-def parameters_grad(parameters: Iterable[torch.Tensor]) -> Iterable[torch.Tensor]:
+def parameters_grad(params: Iterable[torch.Tensor]) -> Iterable[torch.Tensor]:
     """return the iterable of parameter's grad"""
-    for p in parameters:
+    for p in params:
         yield p.grad
 
 
@@ -82,6 +81,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         vf_optimizer_kwargs: dict = {},
         vf_epoch=3,
         vf_batch_size=64,
+        update_interval: int = 5000,
         recurrent: bool = False,
         state_normalizer: Optional[ZScoreFilter] = None,
         gamma: float = 0.99,
@@ -160,7 +160,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         self.entropy_coef = entropy_coef
         self.max_kl = max_kl
         self.logger = logger
-        self.num_update = 0
+        self.num_update = 0  # number of update
+        self.update_interval = update_interval
 
         self.calc_stats = calc_stats
         if self.calc_stats:
@@ -192,17 +193,27 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 resets,
             )
         ):
+            if isinstance(reward, np.float64):
+                logging.warning("reward is float64")
             transition = dict(
                 state=state,
                 action=action,
                 reward=reward,
                 next_state=next_state,
                 terminal=terminal,
+                reset=reset,
                 **kwargs,
             )
             self.memory[i][-1].append(transition)
             if reset:
                 self.memory[i].append([])
+
+        if self.training:
+            memory_size = sum(
+                [len(episode) for episode in itertools.chain.from_iterable(self.memory)]
+            )
+            if memory_size >= self.update_interval:
+                self.update()
 
     def act(self, state):
         state = torch.tensor(state, device=self.device, requires_grad=False)
@@ -216,12 +227,9 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         action = action.detach().cpu().numpy()
         return action
 
-    def update(self):
-        self.num_update += 1
-        self.logger.info(f"Update TRPO num: {self.num_update}")
-        self.memory = list(itertools.chain.from_iterable(self.memory))
-        batch = _memory2batch(
-            self.memory,
+    def _memory_preprocessing(self, memory: List[List[Dict]]):
+        return _memory2batch(
+            memory,
             self.gamma,
             self.lambd,
             self.vf,
@@ -229,6 +237,13 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             self.state_normalizer,
             device=self.device,
         )
+
+    def update(self):
+        assert self.training
+        self.num_update += 1
+        self.logger.info(f"Update TRPO num: {self.num_update}")
+        self.memory = list(itertools.chain.from_iterable(self.memory))
+        batch = self._memory_preprocessing(self.memory)
 
         if self.state_normalizer:
             self.state_normalizer.update(batch.state)
@@ -293,22 +308,25 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         # flat_kl_grads_ = _flatten_and_concat_variables(kl_grads)
         self.policy.zero_grad()
         kl.backward(create_graph=True)
-        flat_kl_grads = nn.utils.convert_parameters.parameters_to_vector(
+        kl_grads = nn.utils.convert_parameters.parameters_to_vector(
             parameters_grad(self.policy.parameters())
         )
 
         def fisher_vector_product_func(vec):
             vec = torch.as_tensor(vec)
             self.policy.zero_grad()
-            fvp = _hessian_vector_product(flat_kl_grads, self.policy.parameters(), vec)
+            fvp = _hessian_vector_product(kl_grads, self.policy.parameters(), vec)
             return fvp + self.conjugate_gradient_damping * vec
 
         self.policy.zero_grad()
-        # gain_grad = gain.backward(create_graph=True)
-        gain_grads = autograd.grad(gain, self.policy.parameters(), create_graph=True)
-        flat_gain_grads = _flatten_and_concat_variables(gain_grads).detach()
+        gain.backward(retain_graph=True)
+        # gain_grads = autograd.grad(gain, self.policy.parameters(), create_graph=True)
+        # flat_gain_grads = _flatten_and_concat_variables(gain_grads).detach()
+        gain_grads = nn.utils.convert_parameters.parameters_to_vector(
+            parameters_grad(self.policy.parameters())
+        )
         step_direction = conjugate_gradient(
-            fisher_vector_product_func, flat_gain_grads, max_iter=self.conjugate_gradient_max_iter
+            fisher_vector_product_func, gain_grads, max_iter=self.conjugate_gradient_max_iter
         )
 
         dId = float(step_direction.dot(fisher_vector_product_func(step_direction)))
@@ -381,8 +399,6 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         for minibatch_indices in _yield_minibatches(
             range(len_batch), self.vf_batch_size, self.vf_epoch
         ):
-            # for _ in range(self.vf_epoch):
-            # minibatch_indices = random.sample(range(len_batch), self.vf_batch_size)
             state = batch.state[minibatch_indices]
             if self.state_normalizer:
                 state = self.state_normalizer(state, update=False)
@@ -394,6 +410,4 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             self.vf_optimizer.step()
 
     def get_statistics(self):
-        return {
-            "average_value": 1.0,
-        }
+        raise NotImplementedError()
