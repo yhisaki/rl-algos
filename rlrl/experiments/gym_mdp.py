@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional, Tuple, Union
 import numpy as np
 from gym import Env
 from gym.vector.vector_env import VectorEnv
-from rlrl.wrappers.dummy_vec_env import DummyVectorEnvWrapper
+from rlrl.wrappers import SingleAsVectorEnv
 
 
 class GymMDP(Iterator):
@@ -48,7 +48,7 @@ class GymMDP(Iterator):
         ), "Either max_episode or max_step must be set to a value."
 
         if not isinstance(self.env, VectorEnv):
-            self.env = DummyVectorEnvWrapper(self.env)
+            self.env = SingleAsVectorEnv(self.env)
             # dummy_env = _make()
             # setattr(self.env, "spec", dummy_env.spec)
 
@@ -70,6 +70,9 @@ class GymMDP(Iterator):
             return self.max_step <= self.total_step.sum()
         elif self.max_episode is not None:
             return self.max_episode <= self.total_episode.sum()
+
+    def __iter__(self):
+        return self
 
     def __next__(self) -> Tuple[np.ndarray, ...]:
         self.episode_reward *= np.invert(self.done)
