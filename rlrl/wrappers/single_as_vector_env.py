@@ -9,8 +9,10 @@ class SingleAsVectorEnv(VectorEnv):
         super().__init__(1, env.observation_space, env.action_space)
 
     def seed(self, seeds=None):
-        if seeds is not None:
+        if isinstance(seeds, list):
             self.env.seed(seeds[0])
+        else:
+            self.env.seed(seeds)
 
     def step_async(self, actions) -> None:
         self._action = actions

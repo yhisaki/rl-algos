@@ -1,40 +1,12 @@
 import argparse
 import logging
-from typing import Optional
-import gym
-
 # import wandb
 from rlrl.utils import manual_seed
 from rlrl.experiments import GymMDP
 from rlrl.agents.atrpo_agent import AtrpoAgent
 from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
 from rlrl.utils import is_state_terminal
-from rlrl.wrappers import (
-    CastObservationToFloat32,
-    CastRewardToFloat32,
-)
-
-
-def make_env(
-    env_id: str,
-    num_envs: int = 1,
-    seed: Optional[int] = None,
-):
-    def _make():
-        _env = gym.make(env_id)
-        _env = CastObservationToFloat32(_env)
-        _env = CastRewardToFloat32(_env)
-        return _env
-
-    if num_envs > 1:
-        env = gym.vector.async_vector_env.AsyncVectorEnv([_make for _ in range(num_envs)])
-        dummy_env = _make()
-        setattr(env, "spec", dummy_env.spec)
-
-        del dummy_env
-    else:
-        env = _make()
-    return env
+from rlrl.wrappers import make_envs_for_training
 
 
 def train_trpo():
@@ -52,7 +24,7 @@ def train_trpo():
 
     manual_seed(args.seed)
 
-    env = make_env(args.env_id, args.num_envs, args.seed)
+    env = make_envs_for_training(args.env_id, args.num_envs, args.seed)
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1] if args.num_envs == 1 else env.action_space[0].shape[-1]
 
@@ -67,6 +39,7 @@ def train_trpo():
         dim_action=dim_action,
         entropy_coef=0.0,
         vf_epoch=5,
+        lambd=0.97,
         conjugate_gradient_damping=1e-1,
         update_interval=args.num_envs * 1000,
     )
@@ -74,11 +47,7 @@ def train_trpo():
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(
-        env,
-        actor,
-        max_step=1e7,
-    )
+    interactions = GymMDP(env, actor, max_step=1e7)
 
     for step, states, next_states, actions, rewards, dones in interactions:
         agent.observe(

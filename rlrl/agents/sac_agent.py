@@ -223,15 +223,15 @@ class SacAgent(AttributeSavingMixin, AgentBase):
                     reward=reward,
                     terminal=terminal,
                 )
-            if len(self.replay_buffer) > self.num_random_act:
-                self.update()
+            self.update_if_dataset_is_ready()
 
-    def update(self):
-        sampled = self.replay_buffer.sample(self.batch_size)
-        self.batch = TorchTensorBatch(**sampled, device=self.device)
-        self._update_q(self.batch)
-        self._update_policy_and_temperature(self.batch)
-        self._sync_target_network()
+    def update_if_dataset_is_ready(self):
+        if len(self.replay_buffer) > self.num_random_act:
+            sampled = self.replay_buffer.sample(self.batch_size)
+            self.batch = TorchTensorBatch(**sampled, device=self.device)
+            self._update_q(self.batch)
+            self._update_policy_and_temperature(self.batch)
+            self._sync_target_network()
 
     def _update_q(self, batch: TorchTensorBatch):
         self.q1_loss, self.q2_loss = SacAgent.compute_q_loss(
