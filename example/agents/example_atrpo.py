@@ -1,32 +1,38 @@
 import argparse
 import logging
-# import wandb
-from rlrl.utils import manual_seed
-from rlrl.experiments import GymMDP
+from statistics import mean, stdev
+
+import wandb
 from rlrl.agents.atrpo_agent import AtrpoAgent
+from rlrl.experiments import Evaluator, GymMDP
 from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
-from rlrl.utils import is_state_terminal
-from rlrl.wrappers import make_envs_for_training
+from rlrl.utils import is_state_terminal, manual_seed
+from rlrl.wrappers import make_env, make_envs_for_training
 
 
-def train_trpo():
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+def _add_header_to_dict_key(d: dict, header: str):
+    return {header + "/" + k: v for k, v in d.items()}
 
+
+def train_atrpo():
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument("--gpu", action="store_true", default=False)
-    parser.add_argument("--env_id", type=str, default="Swimmer-v2")
+    wandb.init(project="atrpo")
+
+    parser.add_argument("--env_id", type=str, default="Hopper-v2")
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--log-level", type=int, default=logging.INFO)
+    parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level)
+    logger = logging.getLogger(__name__)
 
     manual_seed(args.seed)
 
     env = make_envs_for_training(args.env_id, args.num_envs, args.seed)
     dim_state = env.observation_space.shape[-1]
-    dim_action = env.action_space.shape[-1] if args.num_envs == 1 else env.action_space[0].shape[-1]
+    dim_action = env.action_space[0].shape[-1]
 
     logger.info(f"env = {env}")
     logger.info(f"dim_state = {dim_state}")
@@ -44,10 +50,12 @@ def train_trpo():
         update_interval=args.num_envs * 1000,
     )
 
+    evaluator = Evaluator(env=make_env(args.env_id), num_evaluate=100)
+
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(env, actor, max_step=1e7)
+    interactions = GymMDP(env, actor, max_step=5e5)
 
     for step, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
@@ -58,7 +66,31 @@ def train_trpo():
             terminals=is_state_terminal(env, step, dones),
             resets=dones,
         )
+        if interactions.total_step.sum() % 50000 < interactions.num_envs:
+            with agent.eval_mode():
+                scores = evaluator.evaluate(actor)
+                print(
+                    "\033[31m Evaluate Agent \033[0m"
+                    f"mean_score = {mean(scores)} (stdev = {stdev(scores)})"
+                )
+            wandb.log(
+                {
+                    "step": interactions.total_step.sum(),
+                    "eval/mean": mean(scores),
+                    "eval/stdev": stdev(scores),
+                }
+            )
+        if agent.just_updated:
+            agent_stats = agent.get_statistics()
+            gym_stats = interactions.get_statistics()
+            wandb.log(
+                {
+                    "step": interactions.total_step.sum(),
+                    **_add_header_to_dict_key(agent_stats, "train"),
+                    **_add_header_to_dict_key(gym_stats, "train"),
+                }
+            )
 
 
 if __name__ == "__main__":
-    train_trpo()
+    train_atrpo()

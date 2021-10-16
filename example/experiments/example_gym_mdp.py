@@ -1,37 +1,37 @@
 from rlrl.experiments import GymMDP
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
+import logging
 
 
-def example_single_env():
-    env = gym.make("Swimmer-v2")
+def example_single_env(env_id: str):
+    env = gym.make(env_id)
 
-    def actor(state):
+    def actor(_):
         return [env.action_space.sample()]
 
-    interactions = GymMDP(env, actor, max_episode=2)
+    interactions = GymMDP(env, actor, max_step=1000)
 
-    for epi_step, state, next_state, action, reward, done in interactions:
-        print(state)
+    for _ in interactions:
+        pass
 
 
-def example_vector_env():
+def example_vector_env(env_id: str):
     def _make():
-        return gym.make("Hopper-v2")
+        return gym.make(env_id)
 
     env = AsyncVectorEnv([_make for _ in range(3)])
     print(env.observation_space)
 
-    def actor(state):
+    def actor(_):
         return env.action_space.sample()
 
     interactions = GymMDP(env, actor, max_episode=2)
 
-    for epi_step, state, next_state, action, reward, done in interactions:
-        for es in state:
-            print(es)
-        break
+    for _ in interactions:
+        pass
 
 
 if __name__ == "__main__":
-    example_single_env()
+    logging.basicConfig(level=logging.INFO)
+    example_single_env("Humanoid-v3")

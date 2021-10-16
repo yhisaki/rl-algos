@@ -1,20 +1,18 @@
 import itertools
-import logging
-from typing import List, Dict
+from typing import Dict, List
 
+import numpy as np
 import torch
 from torch import distributions
-import numpy as np
 
+from rlrl.agents import TrpoAgent
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo
 from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
-from rlrl.agents import TrpoAgent
-from rlrl.utils.transpose_list_dict import transpose_list_dict
 from rlrl.replay_buffers import TorchTensorBatch
+from rlrl.utils.transpose_list_dict import transpose_list_dict
 
 
-def _add_adv_and_v_target_to_episode(episode, rho):
-    lambd = 0.97
+def _add_adv_and_v_target_to_episode(episode, rho, lambd):
     adv = 0.0
     for transition in reversed(episode):
         td_err = transition["reward"] - rho + transition["next_v_pred"] - transition["v_pred"]
@@ -26,6 +24,7 @@ def _add_adv_and_v_target_to_episode(episode, rho):
 def _memory2batch(
     memory: List[List[Dict]],  # [episode, episode,...]
     vf,
+    lambd,
     policy,
     state_normalizer,
     device,
@@ -55,7 +54,7 @@ def _memory2batch(
         transition["next_v_pred"] = next_v_pred
 
     for episode in memory:
-        _add_adv_and_v_target_to_episode(episode, rho)
+        _add_adv_and_v_target_to_episode(episode, rho, lambd)
 
     return TorchTensorBatchTrpoPpo(**transpose_list_dict(memory_flatten), device=device)
 
@@ -70,7 +69,6 @@ class AtrpoAgent(TrpoAgent):
         super().__init__(
             *args,
             gamma=None,
-            lambd=None,
             **kwargs,
         )
         self.reset_cost = np.float32(reset_cost)
@@ -81,36 +79,40 @@ class AtrpoAgent(TrpoAgent):
         return _memory2batch(
             memory,
             self.vf,
+            self.lambd,
             self.policy,
             self.state_normalizer,
             device=self.device,
         )
 
-    def update(self):
-        self.logger.info("Start Update")
+    def update_if_dataset_is_ready(self):
+        assert self.training
+        self.just_updated = False
+        memory_size = sum([len(episode) for episode in itertools.chain.from_iterable(self.memory)])
+        if memory_size >= self.update_interval:
+            self.just_updated = True
+            self.num_update += 1
+            self.logger.info(f"Update TRPO num: {self.num_update}")
 
-        def expand_episodes(episodes):
-            for episode in episodes:
-                for transition in episode:
-                    if transition["terminal"]:
-                        transition["reward"] += self.reset_cost
-                    yield transition
+            def expand_episodes(episodes):
+                for episode in episodes:
+                    for transition in episode:
+                        if transition["terminal"]:
+                            transition["reward"] += self.reset_cost
+                        yield transition
 
-        for i, episodes in enumerate(self.memory):
-            self.memory[i] = list(expand_episodes(episodes))
+            expanded_memory = []
+            for episodes in self.memory:
+                expanded_memory.append(list(expand_episodes(episodes)))
 
-        batch = self._memory_preprocessing(self.memory)
+            batch = self._memory_preprocessing(expanded_memory)
 
-        logging.info(f"rho = {float(batch.reward.mean())}")
+            self.logger.info(f"rho = {float(batch.reward.mean())}")
 
-        if self.state_normalizer:
-            self.state_normalizer.update(batch.state)
+            if self.state_normalizer:
+                self.state_normalizer.update(batch.state)
 
-        self._update_vf(batch)
-        self._update_policy(batch)
+            self._update_vf(batch)
+            self._update_policy(batch)
 
-        self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory
-
-
-if __name__ == "__main__":
-    pass
+            self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory

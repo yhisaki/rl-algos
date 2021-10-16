@@ -1,10 +1,12 @@
 import logging
+from collections import deque
 from collections.abc import Iterator
 from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 from gym import Env
 from gym.vector.vector_env import VectorEnv
+
 from rlrl.wrappers import SingleAsVectorEnv
 
 
@@ -26,6 +28,8 @@ class GymMDP(Iterator):
         actor: Callable[[Any], Any],
         max_step: Optional[int] = None,
         max_episode: Optional[int] = None,
+        step_stats_window: int = 30,
+        reward_sum_stats_window: int = 30,
         logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """[summary]
@@ -49,8 +53,6 @@ class GymMDP(Iterator):
 
         if not isinstance(self.env, VectorEnv):
             self.env = SingleAsVectorEnv(self.env)
-            # dummy_env = _make()
-            # setattr(self.env, "spec", dummy_env.spec)
 
         self.state = self.env.reset()
 
@@ -64,6 +66,9 @@ class GymMDP(Iterator):
 
         self.done = np.zeros(self.num_envs, np.bool_)
         self.logger = logger
+
+        self.step_record = deque(maxlen=step_stats_window)
+        self.reward_sum_record = deque(maxlen=reward_sum_stats_window)
 
     def is_finish(self) -> bool:
         if self.max_step is not None:
@@ -94,6 +99,8 @@ class GymMDP(Iterator):
         if self.done.any():
             done_env_index = np.where(self.done)[0]
             for idx in done_env_index:
+                self.reward_sum_record.append(self.episode_reward[idx])
+                self.step_record.append(self.episode_step[idx])
                 self.logger.info(
                     f"env : {idx}, "
                     f"total_step = {self.total_step[idx]}, "
@@ -103,5 +110,8 @@ class GymMDP(Iterator):
 
         return self.episode_step, state, self.state, action, reward, self.done
 
-    def get_statics(self):
-        return {}
+    def get_statistics(self):
+        return {
+            "average_reward_sum": np.mean(self.reward_sum_record),
+            "average_step": np.mean(self.step_record),
+        }

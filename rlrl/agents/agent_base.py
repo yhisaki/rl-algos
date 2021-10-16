@@ -26,7 +26,7 @@ class AgentBase(object, metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def update(self, *args, **kwargs) -> Any:
+    def update_if_dataset_is_ready(self, *args, **kwargs) -> Any:
         """
         Update the agent.(e.g. policy, q_function, ...)
         """

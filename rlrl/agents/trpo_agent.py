@@ -1,9 +1,8 @@
 import collections
 import itertools
-import logging
 import random
 from logging import Logger, getLogger
-from typing import Iterable, Optional, Type, Union, List, Dict
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import numpy as np
 import torch
@@ -193,8 +192,6 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 resets,
             )
         ):
-            if isinstance(reward, np.float64):
-                logging.warning("reward is float64")
             transition = dict(
                 state=state,
                 action=action,
@@ -209,22 +206,23 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 self.memory[i].append([])
 
         if self.training:
-            memory_size = sum(
-                [len(episode) for episode in itertools.chain.from_iterable(self.memory)]
-            )
-            if memory_size >= self.update_interval:
-                self.update()
+            self.update_if_dataset_is_ready()
 
     def act(self, state):
         state = torch.tensor(state, device=self.device, requires_grad=False)
-        if self.training:
-            action_distrib: distributions.Distribution = self.policy(state)
-            action: torch.Tensor = action_distrib.sample()
-        else:
-            with self.policy_stochanic_head.deterministic():
-                action: torch.Tensor = self.policy(state)
+        with torch.no_grad():
+            if self.training:
+                action_distrib: distributions.Distribution = self.policy(state)
+                action: torch.Tensor = action_distrib.sample()
+                if self.calc_stats:
+                    self.entropy_record.extend(action_distrib.entropy().cpu().numpy())
+                    value: torch.Tensor = self.vf(state)
+                    self.value_record.extend(value.cpu().numpy())
+            else:
+                with self.policy_stochanic_head.deterministic():
+                    action: torch.Tensor = self.policy(state)
 
-        action = action.detach().cpu().numpy()
+            action = action.cpu().numpy()
         return action
 
     def _memory_preprocessing(self, memory: List[List[Dict]]):
@@ -238,20 +236,24 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             device=self.device,
         )
 
-    def update(self):
+    def update_if_dataset_is_ready(self):
         assert self.training
-        self.num_update += 1
-        self.logger.info(f"Update TRPO num: {self.num_update}")
-        self.memory = list(itertools.chain.from_iterable(self.memory))
-        batch = self._memory_preprocessing(self.memory)
+        self.just_updated = False
+        memory_size = sum([len(episode) for episode in itertools.chain.from_iterable(self.memory)])
+        if memory_size >= self.update_interval:
+            self.just_updated = True
+            self.num_update += 1
+            self.logger.info(f"Update TRPO num: {self.num_update}")
+            self.memory = list(itertools.chain.from_iterable(self.memory))
+            batch = self._memory_preprocessing(self.memory)
 
-        if self.state_normalizer:
-            self.state_normalizer.update(batch.state)
+            if self.state_normalizer:
+                self.state_normalizer.update(batch.state)
 
-        self._update_policy(batch)
-        self._update_vf(batch)
+            self._update_policy(batch)
+            self._update_vf(batch)
 
-        self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory
+            self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory
 
     def _update_policy(self, batch: TorchTensorBatchTrpoPpo):
         if self.standardize_advantages:
@@ -384,6 +386,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             elif float(new_kl) > self.max_kl:
                 self.logger.info("KL divergence exceeds max_kl. Bakctracking...")
             else:
+                self.kl_record.append(float(new_kl.cpu()))
                 break
             step_size *= 0.5
         else:
@@ -410,4 +413,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             self.vf_optimizer.step()
 
     def get_statistics(self):
-        raise NotImplementedError()
+        return {
+            "average_entropy": np.mean(self.entropy_record),
+            "average_kl": np.mean(self.kl_record),
+            "average_value": np.mean(self.value_record),
+        }
