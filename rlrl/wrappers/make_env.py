@@ -1,5 +1,6 @@
 # from typing import Optional
 
+from typing import Optional
 import gym
 from gym.vector import AsyncVectorEnv
 
@@ -23,11 +24,13 @@ from rlrl.wrappers.single_as_vector_env import SingleAsVectorEnv
 #     return env
 
 
-def make_env(env_id):
+def make_env(env_id, seed: Optional[int] = None):
     env = gym.make(env_id)
     env = CastObservationToFloat32(env)
     env = CastRewardToFloat32(env)
     env = NormalizeActionSpace(env)
+    if seed is not None:
+        env.seed(seed)
     return env
 
 

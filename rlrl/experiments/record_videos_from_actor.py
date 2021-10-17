@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 import gym
 import numpy as np
@@ -10,7 +11,7 @@ def record_videos_from_actor(
     env: gym.Env, actor, num_videos=1, pixel=False, dir=None, logger=logging.getLogger(__name__)
 ):
     if pixel:
-        videos = []
+        videos: List[np.ndarray] = []
         env = PixelObservationWrapper(env, pixels_only=False)
 
         for i in range(num_videos):

@@ -16,14 +16,13 @@ def _add_header_to_dict_key(d: dict, header: str):
 
 def train_trpo():
     parser = argparse.ArgumentParser()
-
-    wandb.init(project="trpo")
-
     parser.add_argument("--env_id", type=str, default="Hopper-v2")
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
+
+    wandb.init(project="trpo", tags=["trpo", args.env_id])
 
     logging.basicConfig(level=args.log_level)
     logger = logging.getLogger(__name__)
@@ -50,12 +49,20 @@ def train_trpo():
         update_interval=args.num_envs * 1000,
     )
 
-    evaluator = Evaluator(env=make_env(args.env_id), num_evaluate=100)
+    evaluator = Evaluator(
+        env=make_env(args.env_id, args.seed), eval_interval=50000, num_evaluate=100
+    )
 
     def actor(state):
         return agent.act(state)
 
     interactions = GymMDP(env, actor, max_step=5e5)
+
+    wandb.config.num_envs = args.num_envs
+    wandb.config.seed = args.seed
+    wandb.config.gamma = agent.gamma
+    wandb.config.lambd = agent.lambd
+    wandb.config.update_interval = agent.update_interval
 
     for steps, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
@@ -66,20 +73,17 @@ def train_trpo():
             terminals=is_state_terminal(env, steps, dones),
             resets=dones,
         )
-        if interactions.total_step.sum() % 50000 < interactions.num_envs:
-            with agent.eval_mode():
-                scores = evaluator.evaluate(actor)
-                print(
-                    "\033[31m Evaluate Agent \033[0m"
-                    f"mean_score = {mean(scores)} (stdev = {stdev(scores)})"
+        with agent.eval_mode():
+            scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
+            if scores is not None:
+                print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
+                wandb.log(
+                    {
+                        "step": interactions.total_step.sum(),
+                        "eval/mean": mean(scores),
+                        "eval/stdev": stdev(scores),
+                    }
                 )
-            wandb.log(
-                {
-                    "step": interactions.total_step.sum(),
-                    "eval/mean": mean(scores),
-                    "eval/stdev": stdev(scores),
-                }
-            )
 
         if agent.just_updated:
             agent_stats = agent.get_statistics()
@@ -91,6 +95,11 @@ def train_trpo():
                     **_add_header_to_dict_key(gym_stats, "train"),
                 }
             )
+
+    with agent.eval_mode():
+        videos = evaluator.record_videos(actor, num_videos=4, pixel=True)
+        for video in videos:
+            wandb.log({"video": wandb.Video(video, fps=60)})
 
 
 if __name__ == "__main__":
