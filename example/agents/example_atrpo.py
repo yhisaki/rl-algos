@@ -17,8 +17,10 @@ def _add_header_to_dict_key(d: dict, header: str):
 def train_atrpo():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Swimmer-v2")
-    parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--num_envs", type=int, default=5)
+    parser.add_argument("--update_interval", type=int, default=None)
+    parser.add_argument("--lambd", type=float, default=0.97)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
@@ -44,9 +46,11 @@ def train_atrpo():
         dim_action=dim_action,
         entropy_coef=0.0,
         vf_epoch=5,
-        lambd=0.97,
+        lambd=args.lambd,
         conjugate_gradient_damping=1e-1,
-        update_interval=args.num_envs * 1000,
+        update_interval=args.num_envs * 1000
+        if args.update_interval is None
+        else args.update_interval,
     )
 
     evaluator = Evaluator(
@@ -95,7 +99,7 @@ def train_atrpo():
             )
 
     with agent.eval_mode():
-        videos = evaluator.record_videos(actor, num_videos=4, pixel=True)
+        videos = evaluator.record_videos(actor, num_videos=1, pixel=True)
         for video in videos:
             wandb.log({"video": wandb.Video(video, fps=60)})
 

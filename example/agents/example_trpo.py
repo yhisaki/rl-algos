@@ -16,9 +16,12 @@ def _add_header_to_dict_key(d: dict, header: str):
 
 def train_trpo():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Hopper-v2")
-    parser.add_argument("--num_envs", type=int, default=5)
+    parser.add_argument("--env_id", type=str, default="Swimmer-v2")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--num_envs", type=int, default=5)
+    parser.add_argument("--update_interval", type=int, default=None)
+    parser.add_argument("--gamma", type=float, default=0.995)
+    parser.add_argument("--lambd", type=float, default=0.97)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
@@ -42,11 +45,14 @@ def train_trpo():
     agent = TrpoAgent(
         dim_state,
         dim_action,
-        gamma=0.995,
+        gamma=args.gamma,
+        lambd=args.lambd,
         entropy_coef=0.0,
         vf_epoch=5,
         conjugate_gradient_damping=1e-1,
-        update_interval=args.num_envs * 1000,
+        update_interval=args.num_envs * 1000
+        if args.update_interval is None
+        else args.update_interval,
     )
 
     evaluator = Evaluator(
@@ -97,7 +103,7 @@ def train_trpo():
             )
 
     with agent.eval_mode():
-        videos = evaluator.record_videos(actor, num_videos=4, pixel=True)
+        videos = evaluator.record_videos(actor, num_videos=1, pixel=True)
         for video in videos:
             wandb.log({"video": wandb.Video(video, fps=60)})
 
