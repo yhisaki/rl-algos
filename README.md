@@ -1,4 +1,4 @@
-# rlrl
+# RLRL
 
 ## 概要
 
@@ -35,6 +35,12 @@ sudo usermod -aG staff <my-user-name>
 ```
 python3 setup.py develop -u
 ```
+
+## Implemented Alogorithms
+
+- [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905)
+- [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
+- [Average Reward TRPO (ATRPO)](https://arxiv.org/abs/2106.07329)
 
 ## 実行結果
 

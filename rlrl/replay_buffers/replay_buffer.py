@@ -3,10 +3,12 @@ import pickle
 from typing import Optional
 
 from rlrl.collections.random_access_queue import RandomAccessQueue
-from rlrl import replay_buffer
+from rlrl.utils.transpose_list_dict import transpose_list_dict
+
+from .abstract_replay_buffer import AbstractReplayBuffer
 
 
-class ReplayBuffer(replay_buffer.AbstractReplayBuffer):
+class ReplayBuffer(AbstractReplayBuffer):
     """Experience Replay Buffer
 
     As described in
@@ -22,16 +24,25 @@ class ReplayBuffer(replay_buffer.AbstractReplayBuffer):
     capacity: Optional[int] = None
 
     def __init__(self, capacity: Optional[int] = None):
-        self.capacity = capacity
+        self.capacity = int(capacity)
         self.memory = RandomAccessQueue(maxlen=capacity)
 
-    def append(self, transition):
+    def append(self, state, next_state, action, reward, terminal, **kwargs):
+        transition = dict(
+            state=state,
+            action=action,
+            reward=reward,
+            next_state=next_state,
+            terminal=terminal,
+            **kwargs
+        )
+
         self.memory.append(transition)
 
-    def sample(self, n, **kwargs):
+    def sample(self, n):
         assert len(self.memory) >= n
         s = self.memory.sample(n)
-        return s
+        return transpose_list_dict(s)
 
     def __len__(self):
         return len(self.memory)
