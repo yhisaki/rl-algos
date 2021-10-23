@@ -21,6 +21,10 @@ def train_atrpo():
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
     parser.add_argument("--lambd", type=float, default=0.97)
+    parser.add_argument("--max_step", type=int, default=5e5)
+    parser.add_argument("--eval_interval", type=int, default=5e4)
+    parser.add_argument("--num_evaluate", type=int, default=100)
+    parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
@@ -54,13 +58,16 @@ def train_atrpo():
     )
 
     evaluator = Evaluator(
-        env=make_env(args.env_id, args.seed), eval_interval=50000, num_evaluate=100
+        env=make_env(args.env_id, args.seed),
+        eval_interval=args.eval_interval,
+        num_evaluate=args.num_evaluate,
+        record_interval=args.max_step // args.num_video,
     )
 
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(env, actor, max_step=5e5)
+    interactions = GymMDP(env, actor, max_step=args.max_step)
 
     wandb.config.num_envs = args.num_envs
     wandb.config.seed = args.seed
@@ -78,7 +85,7 @@ def train_atrpo():
         )
         with agent.eval_mode():
             scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
-            if scores is not None:
+            if len(scores) != 0:
                 print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
                 wandb.log(
                     {
@@ -86,6 +93,13 @@ def train_atrpo():
                         "eval/mean": mean(scores),
                         "eval/stdev": stdev(scores),
                     }
+                )
+            videos = evaluator.record_videos_if_necessary(
+                interactions.total_step, actor, pixel=True
+            )
+            for video in videos:
+                wandb.log(
+                    {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
                 )
         if agent.just_updated:
             agent_stats = agent.get_statistics()
