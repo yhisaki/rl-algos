@@ -22,7 +22,7 @@ class Evaluator(object):
         # ctx = mp.get_context()
         self.env = env
 
-        self.num_evaluate = num_evaluate
+        self.num_evaluate = num_evaluate  # Number of episodes used per evaluation.
 
         self.eval_interval = eval_interval
         self.pre_eval_step = 0
@@ -31,16 +31,6 @@ class Evaluator(object):
         self.pre_record_step = 0
 
         self.logger = logger
-
-    def evaluate_if_necessary(self, total_steps: np.ndarray, actor) -> Optional[List[float]]:
-        scores = []
-        n = total_steps.sum() // self.eval_interval
-        if (self.pre_eval_step < n * self.eval_interval) and (
-            n * self.eval_interval <= total_steps.sum()
-        ):
-            scores = self.evaluate(actor)
-        self.pre_eval_step = total_steps.sum()
-        return scores
 
     def evaluate(self, actor) -> List[float]:
         def _evaluate_once(i):
@@ -62,6 +52,16 @@ class Evaluator(object):
         scores = [_evaluate_once(i) for i in range(self.num_evaluate)]
         return scores
 
+    def evaluate_if_necessary(self, total_steps: np.ndarray, actor) -> Optional[List[float]]:
+        scores = []
+        n = total_steps.sum() // self.eval_interval
+        if (self.pre_eval_step < n * self.eval_interval) and (
+            n * self.eval_interval <= total_steps.sum()
+        ):
+            scores = self.evaluate(actor)
+        self.pre_eval_step = total_steps.sum()
+        return scores
+
     def record_videos(self, actor, num_videos=1, pixel: bool = False, dir: str = None):
         return record_videos_from_actor(self.env, actor, num_videos, pixel, dir, self.logger)
 
@@ -74,5 +74,5 @@ class Evaluator(object):
             n * self.record_interval <= total_steps.sum()
         ):
             videos = self.record_videos(actor, num_videos, pixel, dir)
-        self.pre_eval_step = total_steps.sum()
+        self.pre_record_step = total_steps.sum()
         return videos

@@ -84,6 +84,8 @@ def train_atrpo():
             resets=dones,
         )
         with agent.eval_mode():
+
+            # Evaluate
             scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
             if len(scores) != 0:
                 print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
@@ -94,6 +96,8 @@ def train_atrpo():
                         "eval/stdev": stdev(scores),
                     }
                 )
+
+            # Record videos
             videos = evaluator.record_videos_if_necessary(
                 interactions.total_step, actor, pixel=True
             )
@@ -111,11 +115,6 @@ def train_atrpo():
                     **_add_header_to_dict_key(gym_stats, "train"),
                 }
             )
-
-    with agent.eval_mode():
-        videos = evaluator.record_videos(actor, num_videos=1, pixel=True)
-        for video in videos:
-            wandb.log({"video": wandb.Video(video, fps=60)})
 
 
 if __name__ == "__main__":
