@@ -61,7 +61,7 @@ def train_atrpo():
         env=make_env(args.env_id, args.seed),
         eval_interval=args.eval_interval,
         num_evaluate=args.num_evaluate,
-        record_interval=args.max_step // args.num_video,
+        record_interval=args.max_step // args.num_videos,
     )
 
     def actor(state):
