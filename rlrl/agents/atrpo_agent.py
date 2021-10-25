@@ -1,9 +1,13 @@
 import itertools
-from typing import Dict, List
+import logging
+from typing import Dict, List, Optional, Type, Union
+
 
 import numpy as np
 import torch
-from torch import distributions
+from torch import cuda, distributions, nn
+from torch.optim import Adam, Optimizer
+
 
 from rlrl.agents import TrpoAgent
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo
@@ -62,14 +66,56 @@ def _memory2batch(
 class AtrpoAgent(TrpoAgent):
     def __init__(
         self,
-        *args,
+        dim_state: int,
+        dim_action: int,
+        policy: Optional[nn.Module] = None,
+        vf: Optional[nn.Module] = None,
+        vf_optimizer_class: Type[Optimizer] = Adam,
+        vf_optimizer_kwargs: dict = {},
+        vf_epoch=3,
+        vf_batch_size=64,
+        update_interval: int = 5000,
+        recurrent: bool = False,
+        state_normalizer: Optional[ZScoreFilter] = None,
+        lambd: float = 0.97,
+        entropy_coef: float = 0.01,
+        max_kl: float = 0.01,
         reset_cost=-100,
-        **kwargs,
+        line_search_max_backtrack: int = 10,
+        conjugate_gradient_max_iter: int = 10,
+        conjugate_gradient_damping=0.01,
+        device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
+        calc_stats=True,
+        value_stats_window=1000,
+        entropy_stats_window=1000,
+        kl_stats_window=1000,
+        logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         super().__init__(
-            *args,
+            dim_state,
+            dim_action,
+            policy=policy,
+            vf=vf,
+            vf_optimizer_class=vf_optimizer_class,
+            vf_optimizer_kwargs=vf_optimizer_kwargs,
+            vf_epoch=vf_epoch,
+            vf_batch_size=vf_batch_size,
+            update_interval=update_interval,
+            recurrent=recurrent,
+            state_normalizer=state_normalizer,
             gamma=None,
-            **kwargs,
+            lambd=lambd,
+            entropy_coef=entropy_coef,
+            max_kl=max_kl,
+            line_search_max_backtrack=line_search_max_backtrack,
+            conjugate_gradient_max_iter=conjugate_gradient_max_iter,
+            conjugate_gradient_damping=conjugate_gradient_damping,
+            device=device,
+            calc_stats=calc_stats,
+            value_stats_window=value_stats_window,
+            entropy_stats_window=entropy_stats_window,
+            kl_stats_window=kl_stats_window,
+            logger=logger,
         )
         self.reset_cost = np.float32(reset_cost)
         self.episode_min_step = 1000
