@@ -16,16 +16,25 @@ def _add_header_to_dict_key(d: dict, header: str):
 
 def train_trpo():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Swimmer-v2")
+    parser.add_argument("--env_id", type=str, default="Hopper-v2")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
     parser.add_argument("--gamma", type=float, default=0.995)
     parser.add_argument("--lambd", type=float, default=0.97)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--vf_epoch", type=int, default=5)
+    parser.add_argument("--vf_batch_size", type=int, default=64)
+    parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
+    parser.add_argument("--use_state_normalizer", action="store_true")
+    parser.add_argument("--max_step", type=int, default=5e5)
+    parser.add_argument("--eval_interval", type=int, default=5e4)
+    parser.add_argument("--num_evaluate", type=int, default=10)
+    parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(project="trpo", tags=["trpo", args.env_id])
+    wandb.init(project="trpo", tags=["trpo", args.env_id], config=args)
 
     logging.basicConfig(level=args.log_level)
     logger = logging.getLogger(__name__)
@@ -48,27 +57,27 @@ def train_trpo():
         gamma=args.gamma,
         lambd=args.lambd,
         entropy_coef=0.0,
-        vf_epoch=5,
-        conjugate_gradient_damping=1e-1,
+        vf_epoch=args.vf_epoch,
+        vf_batch_size=args.vf_batch_size,
+        vf_optimizer_kwargs={"lr": args.lr},
+        state_normalizer=ZScoreFilter(dim_state) if args.use_state_normalizer else None,
+        conjugate_gradient_damping=args.conjugate_gradient_damping,
         update_interval=args.num_envs * 1000
         if args.update_interval is None
         else args.update_interval,
     )
 
     evaluator = Evaluator(
-        env=make_env(args.env_id, args.seed), eval_interval=50000, num_evaluate=100
+        env=make_env(args.env_id, args.seed),
+        eval_interval=args.eval_interval,
+        num_evaluate=args.num_evaluate,
+        record_interval=args.max_step // args.num_videos,
     )
 
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(env, actor, max_step=5e5)
-
-    wandb.config.num_envs = args.num_envs
-    wandb.config.seed = args.seed
-    wandb.config.gamma = agent.gamma
-    wandb.config.lambd = agent.lambd
-    wandb.config.update_interval = agent.update_interval
+    interactions = GymMDP(env, actor, max_step=args.max_step)
 
     for steps, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
@@ -80,6 +89,8 @@ def train_trpo():
             resets=dones,
         )
         with agent.eval_mode():
+
+            # Evaluate
             scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
             if len(scores) != 0:
                 print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
@@ -89,6 +100,15 @@ def train_trpo():
                         "eval/mean": mean(scores),
                         "eval/stdev": stdev(scores),
                     }
+                )
+
+            # Record videos
+            videos = evaluator.record_videos_if_necessary(
+                interactions.total_step, actor, pixel=True
+            )
+            for video in videos:
+                wandb.log(
+                    {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
                 )
 
         if agent.just_updated:
@@ -101,11 +121,6 @@ def train_trpo():
                     **_add_header_to_dict_key(gym_stats, "train"),
                 }
             )
-
-    with agent.eval_mode():
-        videos = evaluator.record_videos(actor, num_videos=1, pixel=True)
-        for video in videos:
-            wandb.log({"video": wandb.Video(video, fps=60)})
 
 
 if __name__ == "__main__":

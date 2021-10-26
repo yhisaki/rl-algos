@@ -21,14 +21,19 @@ def train_atrpo():
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
     parser.add_argument("--lambd", type=float, default=0.97)
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--vf_epoch", type=int, default=5)
+    parser.add_argument("--vf_batch_size", type=int, default=64)
+    parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
+    parser.add_argument("--use_state_normalizer", action="store_true")
     parser.add_argument("--max_step", type=int, default=5e5)
     parser.add_argument("--eval_interval", type=int, default=5e4)
-    parser.add_argument("--num_evaluate", type=int, default=100)
+    parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(project="trpo", tags=["atrpo", args.env_id])
+    wandb.init(project="trpo", tags=["atrpo", args.env_id], config=args)
 
     logging.basicConfig(level=args.log_level)
     logger = logging.getLogger(__name__)
@@ -48,10 +53,13 @@ def train_atrpo():
     agent = AtrpoAgent(
         dim_state=dim_state,
         dim_action=dim_action,
-        entropy_coef=0.0,
-        vf_epoch=5,
         lambd=args.lambd,
-        conjugate_gradient_damping=1e-1,
+        entropy_coef=0.0,
+        vf_epoch=args.vf_epoch,
+        vf_batch_size=args.vf_batch_size,
+        vf_optimizer_kwargs={"lr": args.lr} if args.lr is not None else {},
+        state_normalizer=ZScoreFilter(dim_state) if args.use_state_normalizer else None,
+        conjugate_gradient_damping=args.conjugate_gradient_damping,
         update_interval=args.num_envs * 1000
         if args.update_interval is None
         else args.update_interval,
@@ -68,11 +76,6 @@ def train_atrpo():
         return agent.act(state)
 
     interactions = GymMDP(env, actor, max_step=args.max_step)
-
-    wandb.config.num_envs = args.num_envs
-    wandb.config.seed = args.seed
-    wandb.config.lambd = agent.lambd
-    wandb.config.update_interval = agent.update_interval
 
     for steps, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
