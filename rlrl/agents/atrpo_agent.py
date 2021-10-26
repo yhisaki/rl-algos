@@ -149,12 +149,12 @@ class AtrpoAgent(TrpoAgent):
             for episodes in self.memory:
                 expanded_memory.append(list(expand_episodes(episodes)))
 
+            if self.state_normalizer:
+                self._update_state_normalizer(expanded_memory)
+
             batch = self._memory_preprocessing(expanded_memory)
 
             self.logger.info(f"rho = {float(batch.reward.mean())}")
-
-            if self.state_normalizer:
-                self.state_normalizer.update(batch.state)
 
             self._update_vf(batch)
             self._update_policy(batch)

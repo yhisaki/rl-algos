@@ -143,6 +143,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
 
         self.recurrent = recurrent
         self.state_normalizer = state_normalizer
+        if self.state_normalizer is not None:
+            self.state_normalizer.to(self.device)
 
         self.memory = None
         self.gamma = gamma
@@ -205,6 +207,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
 
     def act(self, state):
         state = torch.tensor(state, device=self.device, requires_grad=False)
+        if self.state_normalizer is not None:
+            state = self.state_normalizer(state, update=False)
         with torch.no_grad():
             if self.training:
                 action_distrib: distributions.Distribution = self.policy(state)
@@ -240,15 +244,22 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             self.num_update += 1
             self.logger.info(f"Update TRPO num: {self.num_update}")
             self.memory = list(itertools.chain.from_iterable(self.memory))
-            batch = self._memory_preprocessing(self.memory)
-
             if self.state_normalizer:
-                self.state_normalizer.update(batch.state)
-
+                self._update_state_normalizer(self.memory)
+            batch = self._memory_preprocessing(self.memory)
             self._update_policy(batch)
             self._update_vf(batch)
 
             self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory
+
+    def _update_state_normalizer(self, memory):
+        def extract_state():
+            for epi in memory:
+                for transition in epi:
+                    yield transition["state"]
+
+        state = torch.tensor([s for s in extract_state()], device=self.device)
+        self.state_normalizer.update(state)
 
     def _update_policy(self, batch: TorchTensorBatchTrpoPpo):
         if self.standardize_advantages:
@@ -261,7 +272,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         if self.state_normalizer:
             state = self.state_normalizer(state, update=False)
 
-        action_distrib: distributions.Distribution = self.policy(batch.state)
+        action_distrib: distributions.Distribution = self.policy(state)
         # Distribution to compute KL div against
         with torch.no_grad():
             # torch.distributions.Distribution cannot be deepcopied

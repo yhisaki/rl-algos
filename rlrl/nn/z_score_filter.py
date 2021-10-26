@@ -17,7 +17,7 @@ class ZScoreFilter(nn.Module):
 
     @property
     def std(self):
-        return self._var.clone()
+        return torch.sqrt(self._var).clone()
 
     @property
     def _std_inverse(self):
@@ -26,15 +26,32 @@ class ZScoreFilter(nn.Module):
 
         return self._cached_std_inverse
 
-    def update(self, x):
-        pass
+    def update(self, x: torch.Tensor):
+        count_x = x.shape[0]
+        if count_x == 0:
+            return
+
+        self.count += count_x
+        rate = count_x / self.count.float()
+        assert rate > 0
+        assert rate <= 1
+
+        var_x, mean_x = torch.var_mean(x, axis=0, keepdim=True, unbiased=False)
+        var_x = var_x.squeeze()
+        mean_x = mean_x.squeeze()
+        delta_mean = mean_x - self._mean
+        self._mean += (rate * delta_mean).squeeze()
+        self._var += (rate * (var_x - self._var + delta_mean * (mean_x - self._mean))).squeeze()
+
+        # clear cache
+        self._cached_std_inverse = None
 
     def forward(self, x, update=False):
         if update:
             self.update(x)
-        normalized = (x - self.mean) * self._std_inverse()
+        normalized = (x - self.mean) * self._std_inverse
         return normalized
 
 
-if __name__ == "__main__":
-    filter = ZScoreFilter()
+# if __name__ == "__main__":
+#     filter = ZScoreFilter()
