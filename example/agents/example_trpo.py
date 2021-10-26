@@ -81,7 +81,7 @@ def train_trpo():
         )
         with agent.eval_mode():
             scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
-            if scores is not None:
+            if len(scores) != 0:
                 print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
                 wandb.log(
                     {

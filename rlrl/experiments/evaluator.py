@@ -3,8 +3,9 @@ import logging
 # import multiprocessing as mp
 from typing import List, Optional
 
-from gym import Env
 import numpy as np
+from gym import Env
+
 from rlrl.experiments.record_videos_from_actor import record_videos_from_actor
 
 

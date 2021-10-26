@@ -64,11 +64,6 @@ def _yield_minibatches(dataset, minibatch_size, num_epochs):
         buf = buf[:-minibatch_size]
 
 
-def _mean_or_nan(xs):
-    """Return its mean a non-empty sequence, numpy.nan for a empty one."""
-    return np.mean(xs) if xs else np.nan
-
-
 class TrpoAgent(AttributeSavingMixin, AgentBase):
     def __init__(
         self,

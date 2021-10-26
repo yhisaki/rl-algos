@@ -33,6 +33,7 @@ def train_sac():
         args.num_envs,
         args.seed,
     )
+
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space[0].shape[-1]
 
@@ -51,27 +52,18 @@ def train_sac():
     conf.gamma = sac_agent.gamma
     conf.agent_device = sac_agent.device
 
-    print(sac_agent)
+    def actor(state):
+        return sac_agent.act(state)
 
-    # ------------------------ START INTERACTING WITH THE ENVIRONMENT ------------------------
-    try:
-
-        def actor(state):
-            return sac_agent.act(state)
-
-        interactions = GymMDP(env, actor, max_step=args.max_step)
-        for step, states, next_states, actions, rewards, dones in interactions:
-            sac_agent.observe(
-                states,
-                next_states,
-                actions,
-                rewards,
-                is_state_terminal(env, step, dones),
-            )
-
-    finally:
-        if args.save_agent:
-            sac_agent.save(wandb.run.dir + "/agent")
+    interactions = GymMDP(env, actor, max_step=args.max_step)
+    for step, states, next_states, actions, rewards, dones in interactions:
+        sac_agent.observe(
+            states,
+            next_states,
+            actions,
+            rewards,
+            is_state_terminal(env, step, dones),
+        )
 
 
 if __name__ == "__main__":

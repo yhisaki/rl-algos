@@ -2,12 +2,10 @@ import itertools
 import logging
 from typing import Dict, List, Optional, Type, Union
 
-
 import numpy as np
 import torch
 from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
-
 
 from rlrl.agents import TrpoAgent
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo
