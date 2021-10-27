@@ -27,9 +27,9 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 - [Average Reward TRPO (ATRPO)](https://arxiv.org/abs/2106.07329)
 
-## 実行結果
+## Results
 
-### BipedalWalker-v3 + SoftActorCritic
+<img src=asset/Humanoid-v3.gif width=30%><<img src=asset/Swimmer-v2.gif width=30%><img src=asset/HalfCheetah-v3.gif width=30%>
 
-<img src=asset/sac-BipedalWalker-v3/result.png width=30%> <img src=asset/sac-BipedalWalker-v3/epi350.gif width=30%>
+<img src=asset/BipedalWalker-v3.gif width=30%>
 
