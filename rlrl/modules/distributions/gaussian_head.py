@@ -1,14 +1,14 @@
-from rlrl.modules.distributions.stochanic_head_base import StochanicHeadBase
+from rlrl.modules.distributions.stochastic_head_base import StochasticHeadBase
 import torch
 from torch import nn
 
 
-class GaussianHeadWithStateIndependentCovariance(StochanicHeadBase):
+class GaussianHeadWithStateIndependentCovariance(StochasticHeadBase):
     def __init__(self, dim_action):
         super().__init__()
         self.action_log_std = nn.Parameter(torch.zeros(dim_action))
 
-    def forward_stochanic(self, x):
+    def forward_stochastic(self, x):
         return torch.distributions.Independent(
             torch.distributions.Normal(loc=x, scale=torch.exp(self.action_log_std)), 1
         )
@@ -17,11 +17,11 @@ class GaussianHeadWithStateIndependentCovariance(StochanicHeadBase):
         return x
 
 
-class SquashedDiagonalGaussianHead(StochanicHeadBase):
+class SquashedDiagonalGaussianHead(StochasticHeadBase):
     def __init__(self):
         super().__init__()
 
-    def forward_stochanic(self, x):
+    def forward_stochastic(self, x):
         mean, log_scale = torch.chunk(x, 2, dim=x.dim() // 2)
         log_scale = torch.clamp(log_scale, -20.0, 2.0)
         var = torch.exp(log_scale * 2)

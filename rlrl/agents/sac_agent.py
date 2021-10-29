@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.modules import evaluating
-from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochanicHeadBase
+from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import synchronize_parameters
 from torch import cuda, distributions, nn
@@ -131,9 +131,9 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         else:
             self.policy = policy.to(self.device)
 
-        self.policy_head: StochanicHeadBase = self.policy[-1]
+        self.policy_head: StochasticHeadBase = self.policy[-1]
 
-        if not isinstance(self.policy_head, StochanicHeadBase):
+        if not isinstance(self.policy_head, StochasticHeadBase):
             self.logger.warning("policy head is not stochasitic!!")
 
         self.policy_optimizer = policy_optimizer_class(
