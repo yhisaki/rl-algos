@@ -12,7 +12,7 @@ from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
-from rlrl.modules.distributions import StochanicHeadBase, GaussianHeadWithStateIndependentCovariance
+from rlrl.modules.distributions import StochasticHeadBase, GaussianHeadWithStateIndependentCovariance
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import conjugate_gradient
 
@@ -105,8 +105,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         else:
             self.policy = policy.to(self.device)
 
-        self.policy_stochanic_head: StochanicHeadBase = self.policy[-1]
-        assert isinstance(self.policy_stochanic_head, StochanicHeadBase)
+        self.policy_stochastic_head: StochasticHeadBase = self.policy[-1]
+        assert isinstance(self.policy_stochastic_head, StochasticHeadBase)
 
         # initialize value function
         if vf is None:
@@ -204,7 +204,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                     value: torch.Tensor = self.vf(state)
                     self.value_record.extend(value.cpu().numpy())
             else:
-                with self.policy_stochanic_head.deterministic():
+                with self.policy_stochastic_head.deterministic():
                     action: torch.Tensor = self.policy(state)
 
             action = action.cpu().numpy()
