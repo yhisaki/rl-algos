@@ -8,10 +8,16 @@ from gym.wrappers.record_video import RecordVideo  # NOQA
 
 
 def record_videos_from_actor(
-    env: gym.Env, actor, num_videos=1, pixel=False, dir=None, logger=logging.getLogger(__name__)
+    env: gym.Env,
+    actor,
+    num_videos=1,
+    pixel=False,
+    dir=None,
+    logger: logging.Logger = logging.getLogger(__name__),
 ):
     if pixel:
         videos: List[np.ndarray] = []
+        env.reset()
         env = PixelObservationWrapper(env, pixels_only=False)
 
         for i in range(num_videos):

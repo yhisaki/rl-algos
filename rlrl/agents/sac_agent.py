@@ -280,30 +280,6 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             tau=self.tau,
         )
 
-    def __str__(self) -> str:
-        from rlrl.utils.dict2colorized_string import dict2colorized_string
-
-        title = "============== Soft Actor Critic =============="
-        return dict2colorized_string(
-            title,
-            {
-                "Policy": {"Network": self.q1, "Optimaizer": self.q1_optimizer},
-                "Q Functions": {
-                    "Q1": {"Network": self.q1, "Optimaizer": self.q1_optimizer},
-                    "Q2": {"Network": self.q2, "Optimaizer": self.q2_optimizer},
-                },
-                "Temperature": {
-                    "Network": self.temperature_holder,
-                    "Optimizer": self.temperature_optimizer,
-                },
-                "gamma": self.gamma,
-                "target entropy": self.target_entropy,
-                "batch size": self.batch_size,
-                "replay buffer capacity": self.replay_buffer.capacity,
-                "device": self.device,
-            },
-        )
-
     @staticmethod
     def configure_agent_from_gym(env, **kwargs):
         """state space must be a 1d vector"""
