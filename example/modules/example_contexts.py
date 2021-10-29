@@ -1,5 +1,5 @@
 from torch import nn
-from rlrl.nn import evaluating
+from rlrl.modules import evaluating
 
 if __name__ == "__main__":
     net1 = nn.Sequential(

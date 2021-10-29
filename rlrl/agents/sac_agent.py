@@ -3,16 +3,16 @@ import logging
 from typing import Any, Optional, Tuple, Type, Union
 
 import numpy as np
+import rlrl
 import torch
 import torch.nn.functional as F
-from torch import cuda, distributions, nn
-from torch.optim import Adam, Optimizer
-
-import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
-from rlrl.nn import StochanicHeadBase, evaluating
+from rlrl.modules import evaluating
+from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochanicHeadBase
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import synchronize_parameters
+from torch import cuda, distributions, nn
+from torch.optim import Adam, Optimizer
 
 
 class TemperatureHolder(nn.Module):
@@ -37,31 +37,6 @@ class TemperatureHolder(nn.Module):
         self.log_temperature = nn.Parameter(
             torch.tensor(self.initial_log_temperature_value, dtype=torch.float32)
         )
-
-
-class SquashedDiagonalGaussianHead(StochanicHeadBase):
-    def __init__(self):
-        super().__init__()
-
-    def forward_stochanic(self, x):
-        mean, log_scale = torch.chunk(x, 2, dim=x.dim() // 2)
-        log_scale = torch.clamp(log_scale, -20.0, 2.0)
-        var = torch.exp(log_scale * 2)
-        base_distribution = distributions.Independent(
-            distributions.Normal(loc=mean, scale=torch.sqrt(var)), 1
-        )
-        # cache_size=1 is required for numerical stability
-        # https://pytorch.org/docs/stable/distributions.html#torch.distributions.transformed_distribution.TransformedDistribution
-        return distributions.transformed_distribution.TransformedDistribution(
-            base_distribution,
-            [
-                distributions.transforms.TanhTransform(cache_size=1),
-            ],
-        )
-
-    def forward_determistic(self, x):
-        mean, _ = torch.chunk(x, 2, dim=x.dim() // 2)
-        return torch.tanh(mean)
 
 
 class SacAgent(AttributeSavingMixin, AgentBase):
@@ -113,7 +88,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         # configure Q
         if q1 is None:
             self.q1 = nn.Sequential(
-                rlrl.nn.ConcatStateAction(),
+                rlrl.modules.ConcatStateAction(),
                 nn.Linear(self.dim_state + self.dim_action, 256),
                 nn.ReLU(),
                 nn.Linear(256, 256),
@@ -125,7 +100,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             self.q1 = q1.to(self.device)
         if q2 is None:
             self.q2 = nn.Sequential(
-                rlrl.nn.ConcatStateAction(),
+                rlrl.modules.ConcatStateAction(),
                 nn.Linear(self.dim_state + self.dim_action, 256),
                 nn.ReLU(),
                 nn.Linear(256, 256),

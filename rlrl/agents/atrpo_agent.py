@@ -9,7 +9,7 @@ from torch.optim import Adam, Optimizer
 
 from rlrl.agents import TrpoAgent
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo
-from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
+from rlrl.modules.z_score_filter import ZScoreFilter  # NOQA
 from rlrl.replay_buffers import TorchTensorBatch
 from rlrl.utils.transpose_list_dict import transpose_list_dict
 

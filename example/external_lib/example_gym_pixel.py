@@ -1,12 +1,9 @@
 import contextlib
 
 import gym
-import numpy as np
 from gym.vector.async_vector_env import AsyncVectorEnv
 from gym.vector.sync_vector_env import SyncVectorEnv
 from gym.wrappers.pixel_observation import PixelObservationWrapper
-
-import wandb
 
 
 def make_env(
