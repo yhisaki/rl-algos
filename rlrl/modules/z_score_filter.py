@@ -51,7 +51,3 @@ class ZScoreFilter(nn.Module):
             self.update(x)
         normalized = (x - self.mean) * self._std_inverse
         return normalized
-
-
-# if __name__ == "__main__":
-#     filter = ZScoreFilter()

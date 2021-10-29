@@ -5,7 +5,7 @@ from statistics import mean, stdev
 import wandb
 from rlrl.agents.atrpo_agent import AtrpoAgent
 from rlrl.experiments import Evaluator, GymMDP
-from rlrl.nn.z_score_filter import ZScoreFilter  # NOQA
+from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, make_envs_for_training
 

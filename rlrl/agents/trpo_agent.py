@@ -12,23 +12,9 @@ from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
-from rlrl.nn import StochanicHeadBase
-from rlrl.nn.z_score_filter import ZScoreFilter
+from rlrl.modules.distributions import StochanicHeadBase, GaussianHeadWithStateIndependentCovariance
+from rlrl.modules import ZScoreFilter
 from rlrl.utils import conjugate_gradient
-
-
-class GaussianHeadWithStateIndependentCovariance(StochanicHeadBase):
-    def __init__(self, dim_action):
-        super().__init__()
-        self.action_log_std = nn.Parameter(torch.zeros(dim_action))
-
-    def forward_stochanic(self, x):
-        return torch.distributions.Independent(
-            torch.distributions.Normal(loc=x, scale=torch.exp(self.action_log_std)), 1
-        )
-
-    def forward_determistic(self, x: torch.Tensor) -> torch.Tensor:
-        return x
 
 
 def _hessian_vector_product(

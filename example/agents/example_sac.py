@@ -67,5 +67,4 @@ def train_sac():
 
 
 if __name__ == "__main__":
-    # nohup python3 -u rlrl/example/agents/example_sac.py --env_id "Swimmer-v2" --save_video_interval 5000 --seed 0 --gamma 0.997 --save_agent True &  # noqa: E501
     train_sac()

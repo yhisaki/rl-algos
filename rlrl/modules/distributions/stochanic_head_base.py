@@ -42,13 +42,3 @@ class StochanicHeadBase(nn.Module, ABC):
             yield self
         finally:
             self.is_stochanic = pre_state
-
-
-def to_stochanic(m: nn.Module):
-    if isinstance(m, StochanicHeadBase):
-        m.is_stochanic = True
-
-
-def to_determistic(m: nn.Module):
-    if isinstance(m, StochanicHeadBase):
-        m.is_stochanic = False
