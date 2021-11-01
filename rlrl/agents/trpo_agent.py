@@ -54,6 +54,9 @@ def _yield_minibatches(dataset, minibatch_size, num_epochs):
 
 
 class TrpoAgent(AttributeSavingMixin, AgentBase):
+
+    saved_attributes = ("policy", "vf", "vf_optimizer", "state_normalizer")
+
     def __init__(
         self,
         dim_state: int,
