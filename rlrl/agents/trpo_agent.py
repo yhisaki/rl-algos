@@ -12,8 +12,11 @@ from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
-from rlrl.modules.distributions import StochasticHeadBase, GaussianHeadWithStateIndependentCovariance
 from rlrl.modules import ZScoreFilter
+from rlrl.modules.distributions import (
+    GaussianHeadWithStateIndependentCovariance,
+    StochasticHeadBase,
+)
 from rlrl.utils import conjugate_gradient
 
 
