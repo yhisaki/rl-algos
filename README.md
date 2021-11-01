@@ -1,6 +1,6 @@
 # RLRL
 
-## Concept
+## Overview
 
 I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pfnet/pfrl) as a reference.
 
