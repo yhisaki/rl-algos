@@ -192,12 +192,16 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
     def _update_q(self, batch: TorchTensorBatch):
         self.q1_loss, self.q2_loss = Td3Agent.compute_q_loss(
             batch=batch,
-            policy=self.policy_target,
+            policy_target=self.policy_target,
             gamma=self.gamma,
             q1=self.q1,
             q2=self.q2,
             q1_target=self.q1_target,
             q2_target=self.q2_target,
+            q1_record=self.q1_record if self.calc_stats else None,
+            q2_record=self.q2_record if self.calc_stats else None,
+            q1_loss_record=self.q1_loss_record if self.calc_stats else None,
+            q2_loss_record=self.q2_loss_record if self.calc_stats else None,
         )
         self.q1_optimizer.zero_grad()
         self.q1_loss.backward()
@@ -225,7 +229,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
     @staticmethod
     def compute_q_loss(
         batch: TorchTensorBatch,
-        policy: nn.Module,
+        policy_target: nn.Module,
         gamma: float,
         q1: nn.Module,
         q2: nn.Module,
@@ -233,10 +237,12 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         q2_target: nn.Module,
         q1_record=None,
         q2_record=None,
+        q1_loss_record=None,
+        q2_loss_record=None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        with torch.no_grad(), evaluating(policy, q1_target, q2_target):
+        with torch.no_grad(), evaluating(policy_target, q1_target, q2_target):
             next_actions: torch.Tensor = default_target_policy_smoothing_func(
-                policy(batch.next_state).sample()
+                policy_target(batch.next_state).sample()
             )
             next_q1 = q1_target((batch.next_state, next_actions))
             next_q2 = q2_target((batch.next_state, next_actions))
@@ -247,18 +253,29 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             )
         q1_pred = torch.flatten(q1((batch.state, batch.action)))
         q2_pred = torch.flatten(q2((batch.state, batch.action)))
+
+        q1_loss = F.mse_loss(q1_pred, q_target)
+        q2_loss = F.mse_loss(q2_pred, q_target)
+
         if q1_record is not None:
             q1_record.extend(q1_pred.detach().cpu().numpy())
         if q2_record is not None:
             q2_record.extend(q2_pred.detach().cpu().numpy())
+        if q1_loss_record is not None:
+            q1_loss_record.append(float(q1_loss))
+        if q2_loss_record is not None:
+            q2_loss_record.append(float(q2_loss))
 
-        return F.mse_loss(q1_pred, q_target), F.mse_loss(q2_pred, q_target)
+        return q1_loss, q2_loss
 
-    def get_statics(self) -> dict:
+    def get_statistics(self) -> dict:
         if self.calc_stats:
             return {
                 "average_q1": np.mean(self.q1_record),
                 "average_q2": np.mean(self.q2_record),
+                "average_q1_loss": np.mean(self.q1_loss_record),
+                "average_q2_loss": np.mean(self.q2_loss_record),
+                "average_policy_loss": np.mean(self.policy_loss_record),
             }
         else:
             return {}

@@ -1,5 +1,7 @@
 import argparse
 import logging
+from statistics import mean, stdev
+
 
 import wandb
 from rlrl.agents.td3_agent import Td3Agent
@@ -8,13 +10,17 @@ from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, make_envs_for_training
 
 
+def _add_header_to_dict_key(d: dict, header: str):
+    return {header + "/" + k: v for k, v in d.items()}
+
+
 def train_td3():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="HalfCheetah-v2")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--max_step", type=int, default=5e5)
+    parser.add_argument("--max_step", type=int, default=10 ** 6)
     parser.add_argument("--eval_interval", type=int, default=10 ** 4)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
@@ -22,6 +28,8 @@ def train_td3():
     args = parser.parse_args()
 
     wandb.init(project="td3", tags=["td3", args.env_id], config=args)
+
+    wandb.config.update(args)
 
     logging.basicConfig(level=args.log_level)
     logger = logging.getLogger(__name__)
@@ -60,8 +68,40 @@ def train_td3():
             rewards=rewards,
             terminals=is_state_terminal(env, steps, dones),
         )
+
         with agent.eval_mode():
-            evaluator.evaluate_if_necessary(interactions.total_step, actor)
+
+            # Evaluate
+            scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
+            if len(scores) != 0:
+                print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
+                wandb.log(
+                    {
+                        "step": interactions.total_step.sum(),
+                        "eval/mean": mean(scores),
+                        "eval/stdev": stdev(scores),
+                    }
+                )
+
+            # Record videos
+            videos = evaluator.record_videos_if_necessary(
+                interactions.total_step, actor, pixel=True
+            )
+            for video in videos:
+                wandb.log(
+                    {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
+                )
+
+        if agent.just_updated and (interactions.total_step % 1000 == 0):
+            agent_stats = agent.get_statistics()
+            gym_stats = interactions.get_statistics()
+            wandb.log(
+                {
+                    "step": interactions.total_step.sum(),
+                    **_add_header_to_dict_key(agent_stats, "train"),
+                    **_add_header_to_dict_key(gym_stats, "train"),
+                }
+            )
 
 
 if __name__ == "__main__":
