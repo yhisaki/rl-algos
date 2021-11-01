@@ -1,5 +1,5 @@
-from rlrl.modules.distributions.stochastic_head_base import StochasticHeadBase
 import torch
+from rlrl.modules.distributions.stochastic_head_base import StochasticHeadBase
 from torch import nn
 
 
