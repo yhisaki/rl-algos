@@ -248,9 +248,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             next_q2 = q2_target((batch.next_state, next_actions))
             next_q = torch.min(next_q1, next_q2)
 
-            q_target = batch.reward + gamma * batch.terminal.logical_not() * gamma * torch.flatten(
-                next_q
-            )
+            q_target = batch.reward + gamma * batch.terminal.logical_not() * torch.flatten(next_q)
         q1_pred = torch.flatten(q1((batch.state, batch.action)))
         q2_pred = torch.flatten(q2((batch.state, batch.action)))
 
