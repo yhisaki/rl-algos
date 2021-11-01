@@ -3,16 +3,17 @@ import logging
 from typing import Any, Optional, Tuple, Type, Union
 
 import numpy as np
-import rlrl
 import torch
 import torch.nn.functional as F
+from torch import cuda, distributions, nn
+from torch.optim import Adam, Optimizer
+
+import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.modules import evaluating
 from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import synchronize_parameters
-from torch import cuda, distributions, nn
-from torch.optim import Adam, Optimizer
 
 
 class TemperatureHolder(nn.Module):
@@ -71,7 +72,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         replay_buffer: ReplayBuffer = ReplayBuffer(1e6),
         batch_size: int = 256,
         gamma: float = 0.99,
-        tau: float = 5e-3,
+        tau_q: float = 5e-3,
         num_random_act: int = 1e4,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
@@ -161,7 +162,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             raise ValueError("The discount rate must be greater than zero and less than one.")
 
         # soft update parameter
-        self.tau = tau
+        self.tau_q = tau_q
 
         self.num_random_act = num_random_act
 
@@ -246,13 +247,13 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             src=self.q1,
             dst=self.q1_target,
             method="soft",
-            tau=self.tau,
+            tau=self.tau_q,
         )
         synchronize_parameters(
             src=self.q2,
             dst=self.q2_target,
             method="soft",
-            tau=self.tau,
+            tau=self.tau_q,
         )
 
     @staticmethod

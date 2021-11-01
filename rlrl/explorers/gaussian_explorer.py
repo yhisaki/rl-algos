@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from rlrl.explorers.explorer_base import ExplorerBase
 
@@ -25,11 +26,18 @@ class GaussianExplorer(ExplorerBase):
 
     def select_action(self, t, greedy_action_func, action_value=None):
         a = greedy_action_func()
-        noise = np.random.normal(scale=self.scale, size=a.shape).astype(np.float32)
-        if self.low is not None or self.high is not None:
-            return np.clip(a + noise, self.low, self.high)
-        else:
-            return a + noise
+        if isinstance(a, np.ndarray):
+            noise = np.random.normal(scale=self.scale, size=a.shape).astype(np.float32)
+            if self.low is not None or self.high is not None:
+                return np.clip(a + noise, self.low, self.high)
+            else:
+                return a + noise
+        elif isinstance(a, torch.Tensor):
+            noise = torch.normal(mean=torch.zeros_like(a), std=self.scale)
+            if self.low is not None or self.high is not None:
+                return torch.clip(a + noise, self.low, self.high)
+            else:
+                return a + noise
 
     def __repr__(self):
         return "GaussianExplorer(scale={}, low={}, high={})".format(self.scale, self.low, self.high)

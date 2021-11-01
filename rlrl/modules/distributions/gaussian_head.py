@@ -1,6 +1,7 @@
-from rlrl.modules.distributions.stochastic_head_base import StochasticHeadBase
 import torch
 from torch import nn
+
+from rlrl.modules.distributions.stochastic_head_base import StochasticHeadBase
 
 
 class GaussianHeadWithStateIndependentCovariance(StochasticHeadBase):
