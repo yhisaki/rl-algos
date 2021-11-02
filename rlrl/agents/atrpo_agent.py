@@ -7,7 +7,7 @@ import torch
 from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 
-from rlrl.agents import TrpoAgent
+from rlrl.agents.trpo_agent import TrpoAgent
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo
 from rlrl.modules.z_score_filter import ZScoreFilter  # NOQA
 from rlrl.replay_buffers import TorchTensorBatch

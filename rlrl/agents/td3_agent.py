@@ -1,5 +1,6 @@
 import collections
 import copy
+import logging
 from typing import Optional, Tuple, Type, Union
 
 import numpy as np
@@ -43,6 +44,10 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         num_random_act: int = 10 ** 4,
         calc_stats: bool = True,
+        q_stats_window=1000,
+        q_loss_stats_window=100,
+        policy_loss_stats_window=100,
+        logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
         super().__init__()
@@ -117,12 +122,15 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         self.num_q_update = 0
 
         self.calc_stats = calc_stats
+
         if self.calc_stats:
-            self.q1_record = collections.deque(maxlen=1000)
-            self.q2_record = collections.deque(maxlen=1000)
-            self.q1_loss_record = collections.deque(maxlen=100)
-            self.q2_loss_record = collections.deque(maxlen=100)
-            self.policy_loss_record = collections.deque(maxlen=100)
+            self.q1_record = collections.deque(maxlen=q_stats_window)
+            self.q2_record = collections.deque(maxlen=q_stats_window)
+            self.q1_loss_record = collections.deque(maxlen=q_loss_stats_window)
+            self.q2_loss_record = collections.deque(maxlen=q_loss_stats_window)
+            self.policy_loss_record = collections.deque(maxlen=policy_loss_stats_window)
+
+        self.logger = logger
 
     def sync_target_network(self):
         """Synchronize target network with current network."""
@@ -182,6 +190,8 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         self.just_updated = False
         if len(self.replay_buffer) > self.num_random_act:
             self.just_updated = True
+            if self.num_q_update == 0:
+                self.logger.info("Start Update")
             sampled = self.replay_buffer.sample(self.batch_size)
             self.batch = TorchTensorBatch(**sampled, device=self.device)
             self._update_q(self.batch)

@@ -20,8 +20,11 @@ def train_td3():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--policy_update_delay", type=int, default=2)
     parser.add_argument("--max_step", type=int, default=10 ** 6)
     parser.add_argument("--eval_interval", type=int, default=10 ** 4)
+    parser.add_argument("--agent_logging_interval", type=int, default=10 ** 3)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -46,7 +49,16 @@ def train_td3():
     logger.info(f"action_space = {env.action_space}")
     logger.info(f"max_episode_steps = {env.spec.max_episode_steps}")
 
-    agent = Td3Agent(dim_state=dim_state, dim_action=dim_action, gamma=args.gamma)
+    agent = Td3Agent(
+        dim_state=dim_state,
+        dim_action=dim_action,
+        gamma=args.gamma,
+        batch_size=args.batch_size,
+        policy_update_delay=args.policy_update_delay,
+        q_stats_window=args.batch_size * (args.agent_logging_interval // 10),
+        q_loss_stats_window=args.agent_logging_interval,
+        policy_loss_stats_window=args.agent_logging_interval // args.policy_update_delay,
+    )
 
     evaluator = Evaluator(
         env=make_env(args.env_id, args.seed),
@@ -92,7 +104,7 @@ def train_td3():
                     {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
                 )
 
-        if agent.just_updated and (interactions.total_step % 1000 == 0):
+        if agent.just_updated and (interactions.total_step % args.agent_logging_interval == 0):
             agent_stats = agent.get_statistics()
             gym_stats = interactions.get_statistics()
             wandb.log(
