@@ -1,5 +1,5 @@
 import logging
-from collections import deque
+import collections
 from collections.abc import Iterator
 from typing import Any, Callable, Optional, Tuple, Union
 
@@ -28,8 +28,9 @@ class GymMDP(Iterator):
         actor: Callable[[Any], Any],
         max_step: Optional[int] = None,
         max_episode: Optional[int] = None,
-        step_stats_window: int = 30,
-        reward_sum_stats_window: int = 30,
+        calc_stats: bool = True,
+        step_stats_window: int = None,
+        reward_sum_stats_window: int = None,
         logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """[summary]
@@ -67,8 +68,10 @@ class GymMDP(Iterator):
         self.done = np.zeros(self.num_envs, np.bool_)
         self.logger = logger
 
-        self.step_record = deque(maxlen=step_stats_window)
-        self.reward_sum_record = deque(maxlen=reward_sum_stats_window)
+        self.calc_stats = calc_stats
+        if calc_stats:
+            self.step_record = collections.deque(maxlen=step_stats_window)
+            self.reward_sum_record = collections.deque(maxlen=reward_sum_stats_window)
 
     def is_finish(self) -> bool:
         if self.max_step is not None:
@@ -110,8 +113,16 @@ class GymMDP(Iterator):
 
         return self.episode_step, state, self.state, action, reward, self.done
 
-    def get_statistics(self):
-        return {
-            "average_reward_sum": np.mean(self.reward_sum_record),
-            "average_step": np.mean(self.step_record),
-        }
+    def get_statistics(self) -> dict:
+        if self.calc_stats:
+            stats = {
+                "average_reward_sum": np.mean(self.reward_sum_record),
+                "average_step": np.mean(self.step_record),
+            }
+            if self.reward_sum_record.maxlen is None:
+                self.reward_sum_record.clear()
+            if self.step_record.maxlen is None:
+                self.step_record.clear()
+            return stats
+        else:
+            self.logger.warning("get_statistics() is called even though the calc_stats is False.")

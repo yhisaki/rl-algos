@@ -44,9 +44,9 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         num_random_act: int = 10 ** 4,
         calc_stats: bool = True,
-        q_stats_window=1000,
-        q_loss_stats_window=100,
-        policy_loss_stats_window=100,
+        q_stats_window=None,
+        q_loss_stats_window=None,
+        policy_loss_stats_window=None,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
@@ -278,12 +278,27 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
     def get_statistics(self) -> dict:
         if self.calc_stats:
-            return {
+            stats = {
                 "average_q1": np.mean(self.q1_record),
                 "average_q2": np.mean(self.q2_record),
                 "average_q1_loss": np.mean(self.q1_loss_record),
                 "average_q2_loss": np.mean(self.q2_loss_record),
                 "average_policy_loss": np.mean(self.policy_loss_record),
             }
+
+            if self.q1_record.maxlen is None:
+                self.q1_record.clear()
+            if self.q2_record.maxlen is None:
+                self.q2_record.clear()
+
+            if self.q1_loss_record.maxlen is None:
+                self.q1_loss_record.clear()
+            if self.q2_loss_record.maxlen is None:
+                self.q2_loss_record.clear()
+
+            if self.policy_loss_record.maxlen is None:
+                self.policy_loss_record.clear()
+
+            return stats
         else:
-            return {}
+            self.logger.warning("get_statistics() is called even though the calc_stats is False.")

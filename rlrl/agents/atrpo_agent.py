@@ -84,9 +84,9 @@ class AtrpoAgent(TrpoAgent):
         conjugate_gradient_damping=0.01,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         calc_stats=True,
-        value_stats_window=1000,
-        entropy_stats_window=1000,
-        kl_stats_window=1000,
+        value_stats_window=None,
+        entropy_stats_window=None,
+        kl_stats_window=None,
         logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         super().__init__(
@@ -117,7 +117,6 @@ class AtrpoAgent(TrpoAgent):
         )
         self.reset_cost = np.float32(reset_cost)
         self.episode_min_step = 1000
-        self.logger.info(f"Atrpo uses {self.device}")
 
     def _memory_preprocessing(self, memory: List[List[Dict]]):
         return _memory2batch(

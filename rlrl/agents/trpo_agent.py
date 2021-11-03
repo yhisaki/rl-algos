@@ -79,9 +79,9 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         conjugate_gradient_damping=1e-2,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         calc_stats=True,
-        value_stats_window=1000,
-        entropy_stats_window=1000,
-        kl_stats_window=1000,
+        value_stats_window=None,
+        entropy_stats_window=None,
+        kl_stats_window=None,
         logger: Logger = getLogger(__name__),
     ) -> None:
         super().__init__()
@@ -89,7 +89,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         if isinstance(device, str):
             device = torch.device(device)
         self.device = device
-        logger.info(f"TRPO DEVICE: {self.device}")
+        logger.info(f"DEVICE: {self.device}")
 
         def ortho_init(layer, gain):
             nn.init.orthogonal_(layer.weight, gain=gain)
@@ -411,8 +411,18 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             self.vf_optimizer.step()
 
     def get_statistics(self):
-        return {
-            "average_entropy": np.mean(self.entropy_record),
-            "average_kl": np.mean(self.kl_record),
-            "average_value": np.mean(self.value_record),
-        }
+        if self.calc_stats:
+            stats = {
+                "average_entropy": np.mean(self.entropy_record),
+                "average_kl": np.mean(self.kl_record),
+                "average_value": np.mean(self.value_record),
+            }
+            if self.entropy_record.maxlen is None:
+                self.entropy_record.clear()
+            if self.kl_record.maxlen is None:
+                self.kl_record.clear()
+            if self.value_record.maxlen is None:
+                self.value_record.clear()
+            return stats
+        else:
+            self.logger.warning("get_statistics() is called even though the calc_stats is False.")

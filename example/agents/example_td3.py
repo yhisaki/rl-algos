@@ -55,9 +55,6 @@ def train_td3():
         gamma=args.gamma,
         batch_size=args.batch_size,
         policy_update_delay=args.policy_update_delay,
-        q_stats_window=args.batch_size * (args.agent_logging_interval // 10),
-        q_loss_stats_window=args.agent_logging_interval,
-        policy_loss_stats_window=args.agent_logging_interval // args.policy_update_delay,
     )
 
     evaluator = Evaluator(
