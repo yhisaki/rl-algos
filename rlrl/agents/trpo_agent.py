@@ -90,23 +90,16 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         self.device = device
         logger.info(f"DEVICE: {self.device}")
 
-        def ortho_init(layer, gain):
-            nn.init.orthogonal_(layer.weight, gain=gain)
-            nn.init.zeros_(layer.bias)
-
         # initialize policy
         if policy is None:
             self.policy = nn.Sequential(
-                nn.Linear(dim_state, 64),
+                ortho_init(nn.Linear(dim_state, 64), gain=1.0),
                 nn.Tanh(),
-                nn.Linear(64, 64),
+                ortho_init(nn.Linear(64, 64), gain=1.0),
                 nn.Tanh(),
-                nn.Linear(64, dim_action),
+                ortho_init(nn.Linear(64, dim_action), gain=1e-2),
                 GaussianHeadWithStateIndependentCovariance(dim_action),
             ).to(self.device)
-            ortho_init(self.policy[0], gain=1)
-            ortho_init(self.policy[2], gain=1)
-            ortho_init(self.policy[4], gain=1e-2)
         else:
             self.policy = policy.to(self.device)
 
@@ -116,15 +109,12 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         # initialize value function
         if vf is None:
             self.vf = nn.Sequential(
-                nn.Linear(dim_state, 64),
+                ortho_init(nn.Linear(dim_state, 64), gain=1.0),
                 nn.Tanh(),
-                nn.Linear(64, 64),
+                ortho_init(nn.Linear(64, 64), gain=1.0),
                 nn.Tanh(),
-                nn.Linear(64, 1),
+                ortho_init(nn.Linear(64, 1), gain=1e-2),
             ).to(self.device)
-            ortho_init(self.vf[0], gain=1)
-            ortho_init(self.vf[2], gain=1)
-            ortho_init(self.vf[4], gain=1e-2)
         else:
             self.vf = vf.to(self.device)
 
