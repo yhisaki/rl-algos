@@ -25,15 +25,19 @@ def record_videos_from_actor(
             state_and_pixels = env.reset()
             video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
             reward_sum = 0
+            step = 0
             while True:
                 action = actor(state_and_pixels["state"])
                 state_and_pixels, reward, done, info = env.step(action)
                 video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
                 reward_sum += reward
+                step += 1
                 if done:
                     break
 
-            logger.info(f"Recording video {i+1}/{num_videos}, reward_sum={reward_sum}")
+            logger.info(
+                f"Recording video {i+1}/{num_videos}, reward_sum={reward_sum}, step = {step}"
+            )
             videos.append(np.array(video))
 
         return videos

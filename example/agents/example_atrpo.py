@@ -25,9 +25,9 @@ def train_atrpo():
     parser.add_argument("--vf_epoch", type=int, default=5)
     parser.add_argument("--vf_batch_size", type=int, default=64)
     parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
-    parser.add_argument("--use_state_normalizer", action="store_true")
-    parser.add_argument("--max_step", type=int, default=5e5)
-    parser.add_argument("--eval_interval", type=int, default=5e4)
+    parser.add_argument("--use_state_normalizer", type=bool, default=True)
+    parser.add_argument("--max_step", type=int, default=10 ** 6)
+    parser.add_argument("--eval_interval", type=int, default=5 * 10 ** 4)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -109,13 +109,11 @@ def train_atrpo():
                     {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
                 )
         if agent.just_updated:
-            agent_stats = agent.get_statistics()
-            gym_stats = interactions.get_statistics()
             wandb.log(
                 {
                     "step": interactions.total_step.sum(),
-                    **_add_header_to_dict_key(agent_stats, "train"),
-                    **_add_header_to_dict_key(gym_stats, "train"),
+                    **_add_header_to_dict_key(agent.get_statistics(), "train"),
+                    **_add_header_to_dict_key(interactions.get_statistics(), "train"),
                 }
             )
 
