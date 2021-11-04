@@ -106,7 +106,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             self.q2 = q2.to(self.device)
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
-        self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
+        self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
         self.q_tau = q_tau
 
         self.q1_optimizer = q_optimizer_class(self.q1.parameters(), **q_optimizer_kwargs)
