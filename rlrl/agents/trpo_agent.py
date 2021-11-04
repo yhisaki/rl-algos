@@ -4,7 +4,6 @@ import random
 from logging import Logger, getLogger
 from typing import Dict, Iterable, List, Optional, Type, Union
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
@@ -12,12 +11,12 @@ from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
-from rlrl.modules import ZScoreFilter
+from rlrl.modules import ZScoreFilter, ortho_init
 from rlrl.modules.distributions import (
     GaussianHeadWithStateIndependentCovariance,
     StochasticHeadBase,
 )
-from rlrl.utils import conjugate_gradient
+from rlrl.utils import clear_if_maxlen_is_none, conjugate_gradient, mean_or_nan
 
 
 def _hessian_vector_product(
@@ -413,16 +412,11 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
     def get_statistics(self):
         if self.calc_stats:
             stats = {
-                "average_entropy": np.mean(self.entropy_record),
-                "average_kl": np.mean(self.kl_record),
-                "average_value": np.mean(self.value_record),
+                "average_entropy": mean_or_nan(self.entropy_record),
+                "average_kl": mean_or_nan(self.kl_record),
+                "average_value": mean_or_nan(self.value_record),
             }
-            if self.entropy_record.maxlen is None:
-                self.entropy_record.clear()
-            if self.kl_record.maxlen is None:
-                self.kl_record.clear()
-            if self.value_record.maxlen is None:
-                self.value_record.clear()
+            clear_if_maxlen_is_none(self.entropy_record, self.kl_record, self.value_record)
             return stats
         else:
             self.logger.warning("get_statistics() is called even though the calc_stats is False.")

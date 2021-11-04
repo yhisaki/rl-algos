@@ -1,5 +1,5 @@
-import logging
 import collections
+import logging
 from collections.abc import Iterator
 from typing import Any, Callable, Optional, Tuple, Union
 
@@ -7,6 +7,7 @@ import numpy as np
 from gym import Env
 from gym.vector.vector_env import VectorEnv
 
+from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan
 from rlrl.wrappers import SingleAsVectorEnv
 
 
@@ -116,13 +117,10 @@ class GymMDP(Iterator):
     def get_statistics(self) -> dict:
         if self.calc_stats:
             stats = {
-                "average_reward_sum": np.mean(self.reward_sum_record),
-                "average_step": np.mean(self.step_record),
+                "average_reward_sum": mean_or_nan(self.reward_sum_record),
+                "average_step": mean_or_nan(self.step_record),
             }
-            if self.reward_sum_record.maxlen is None:
-                self.reward_sum_record.clear()
-            if self.step_record.maxlen is None:
-                self.step_record.clear()
+            clear_if_maxlen_is_none(self.reward_sum_record, self.step_record)
             return stats
         else:
             self.logger.warning("get_statistics() is called even though the calc_stats is False.")

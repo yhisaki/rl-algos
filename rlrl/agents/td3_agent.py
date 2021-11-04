@@ -1,9 +1,8 @@
 import collections
 import copy
 import logging
-from typing import Optional, Tuple, Type, Union
+from typing import Optional, Type, Union
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
@@ -14,7 +13,7 @@ from rlrl.explorers import ExplorerBase, GaussianExplorer
 from rlrl.modules import ConcatStateAction, evaluating
 from rlrl.modules.distributions import DeterministicHead, StochasticHeadBase
 from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
-from rlrl.utils import synchronize_parameters
+from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan, synchronize_parameters
 
 
 def default_target_policy_smoothing_func(batch_action):
@@ -132,7 +131,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.logger = logger
 
-    def sync_target_network(self):
+    def _sync_target_network(self):
         """Synchronize target network with current network."""
         synchronize_parameters(
             src=self.policy,
@@ -197,28 +196,18 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             self._update_q(self.batch)
             if self.num_q_update % self.policy_update_delay == 0:
                 self._update_policy(self.batch)
-                self.sync_target_network()
+                self._sync_target_network()
 
     def _update_q(self, batch: TorchTensorBatch):
-        self.q1_loss, self.q2_loss = Td3Agent.compute_q_loss(
+        q1_loss, q2_loss = self.compute_q_loss(
             batch=batch,
-            policy_target=self.policy_target,
-            gamma=self.gamma,
-            q1=self.q1,
-            q2=self.q2,
-            q1_target=self.q1_target,
-            q2_target=self.q2_target,
-            q1_record=self.q1_record if self.calc_stats else None,
-            q2_record=self.q2_record if self.calc_stats else None,
-            q1_loss_record=self.q1_loss_record if self.calc_stats else None,
-            q2_loss_record=self.q2_loss_record if self.calc_stats else None,
         )
         self.q1_optimizer.zero_grad()
-        self.q1_loss.backward()
+        q1_loss.backward()
         self.q1_optimizer.step()
 
         self.q2_optimizer.zero_grad()
-        self.q2_loss.backward()
+        q2_loss.backward()
         self.q2_optimizer.step()
 
         self.num_q_update += 1
@@ -236,68 +225,53 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.num_policy_update += 1
 
-    @staticmethod
-    def compute_q_loss(
-        batch: TorchTensorBatch,
-        policy_target: nn.Module,
-        gamma: float,
-        q1: nn.Module,
-        q2: nn.Module,
-        q1_target: nn.Module,
-        q2_target: nn.Module,
-        q1_record=None,
-        q2_record=None,
-        q1_loss_record=None,
-        q2_loss_record=None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        with torch.no_grad(), evaluating(policy_target, q1_target, q2_target):
+    def compute_q_loss(self, batch: TorchTensorBatch):
+        with torch.no_grad(), evaluating(self.policy_target, self.q1_target, self.q2_target):
             next_actions: torch.Tensor = default_target_policy_smoothing_func(
-                policy_target(batch.next_state).sample()
+                self.policy_target(batch.next_state).sample()
             )
-            next_q1 = q1_target((batch.next_state, next_actions))
-            next_q2 = q2_target((batch.next_state, next_actions))
+            next_q1 = self.q1_target((batch.next_state, next_actions))
+            next_q2 = self.q2_target((batch.next_state, next_actions))
             next_q = torch.min(next_q1, next_q2)
 
-            q_target = batch.reward + gamma * batch.terminal.logical_not() * torch.flatten(next_q)
-        q1_pred = torch.flatten(q1((batch.state, batch.action)))
-        q2_pred = torch.flatten(q2((batch.state, batch.action)))
+            q_target = batch.reward + self.gamma * batch.terminal.logical_not() * torch.flatten(
+                next_q
+            )
+        q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
+        q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
 
         q1_loss = F.mse_loss(q1_pred, q_target)
         q2_loss = F.mse_loss(q2_pred, q_target)
 
-        if q1_record is not None:
-            q1_record.extend(q1_pred.detach().cpu().numpy())
-        if q2_record is not None:
-            q2_record.extend(q2_pred.detach().cpu().numpy())
-        if q1_loss_record is not None:
-            q1_loss_record.append(float(q1_loss))
-        if q2_loss_record is not None:
-            q2_loss_record.append(float(q2_loss))
+        if self.calc_stats:
+            if self.q1_record is not None:
+                self.q1_record.extend(q1_pred.detach().cpu().numpy())
+            if self.q2_record is not None:
+                self.q2_record.extend(q2_pred.detach().cpu().numpy())
+            if self.q1_loss_record is not None:
+                self.q1_loss_record.append(float(q1_loss))
+            if self.q2_loss_record is not None:
+                self.q2_loss_record.append(float(q2_loss))
 
         return q1_loss, q2_loss
 
     def get_statistics(self) -> dict:
         if self.calc_stats:
             stats = {
-                "average_q1": np.mean(self.q1_record),
-                "average_q2": np.mean(self.q2_record),
-                "average_q1_loss": np.mean(self.q1_loss_record),
-                "average_q2_loss": np.mean(self.q2_loss_record),
-                "average_policy_loss": np.mean(self.policy_loss_record),
+                "average_q1": mean_or_nan(self.q1_record),
+                "average_q2": mean_or_nan(self.q2_record),
+                "average_q1_loss": mean_or_nan(self.q1_loss_record),
+                "average_q2_loss": mean_or_nan(self.q2_loss_record),
+                "average_policy_loss": mean_or_nan(self.policy_loss_record),
             }
 
-            if self.q1_record.maxlen is None:
-                self.q1_record.clear()
-            if self.q2_record.maxlen is None:
-                self.q2_record.clear()
-
-            if self.q1_loss_record.maxlen is None:
-                self.q1_loss_record.clear()
-            if self.q2_loss_record.maxlen is None:
-                self.q2_loss_record.clear()
-
-            if self.policy_loss_record.maxlen is None:
-                self.policy_loss_record.clear()
+            clear_if_maxlen_is_none(
+                self.q1_record,
+                self.q2_record,
+                self.q1_loss_record,
+                self.q2_loss_record,
+                self.policy_loss_record,
+            )
 
             return stats
         else:
