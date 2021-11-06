@@ -32,7 +32,7 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 
 ### mujoco
 <img src=asset/Humanoid-v3.gif width=30%><img src=asset/Swimmer-v2.gif width=30%><img src=asset/HalfCheetah-v3.gif width=30%>
-<img src=asset/Hopper-v2.gif width=30%><img src=asset/Ant-v3.gif width=30%>
+<img src=asset/Hopper-v2.gif width=30%><img src=asset/Ant-v3.gif width=30%><img src=asset/Walker2d-v3.gif width=30%>
 
 ### box2d
 <img src=asset/BipedalWalker-v3.gif width=30%>
