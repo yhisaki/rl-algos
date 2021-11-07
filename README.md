@@ -26,7 +26,7 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 - [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905)
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 - [Average Reward TRPO (ATRPO)](https://arxiv.org/abs/2106.07329)
-- [Twin Delayed DDPG](https://arxiv.org/abs/1802.09477)
+- [Twin Delayed DDPG (TD3)](https://arxiv.org/abs/1802.09477)
 
 ## Results
 
