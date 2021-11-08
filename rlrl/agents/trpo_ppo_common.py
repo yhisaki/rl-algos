@@ -4,11 +4,11 @@ from typing import Dict, List
 import torch
 from torch import distributions
 
-from rlrl.replay_buffers import TorchTensorBatch
+from rlrl.buffers import TrainingBatch
 from rlrl.utils.transpose_list_dict import transpose_list_dict
 
 
-class TorchTensorBatchTrpoPpo(TorchTensorBatch):
+class TorchTensorBatchTrpoPpo(TrainingBatch):
     def __init__(
         self,
         state,
@@ -76,7 +76,7 @@ def _memory2batch(
     device,
 ):
     memory_flatten = list(itertools.chain.from_iterable(memory))
-    batch_flatten = TorchTensorBatch(**transpose_list_dict(memory_flatten), device=device)
+    batch_flatten = TrainingBatch(**transpose_list_dict(memory_flatten), device=device)
 
     state = batch_flatten.state
     next_state = batch_flatten.next_state
@@ -102,3 +102,7 @@ def _memory2batch(
         _add_adv_and_v_target_to_episode(episode, gamma, lambd)
 
     return TorchTensorBatchTrpoPpo(**transpose_list_dict(memory_flatten), device=device)
+
+
+class AdvantageAndTargetValue(object):
+    ...

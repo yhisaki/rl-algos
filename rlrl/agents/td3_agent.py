@@ -9,10 +9,10 @@ from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
+from rlrl.buffers import ReplayBuffer, TrainingBatch
 from rlrl.explorers import ExplorerBase, GaussianExplorer
 from rlrl.modules import ConcatStateAction, evaluating
 from rlrl.modules.distributions import DeterministicHead, StochasticHeadBase
-from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan, synchronize_parameters
 
 
@@ -152,10 +152,10 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             tau=self.q_tau,
         )
 
-    def observe(self, states, next_states, actions, rewards, terminals) -> None:
+    def observe(self, states, next_states, actions, rewards, terminals, resets) -> None:
         if self.training:
-            for state, next_state, action, reward, terminal in zip(
-                states, next_states, actions, rewards, terminals
+            for state, next_state, action, reward, terminal, reset in zip(
+                states, next_states, actions, rewards, terminals, resets
             ):
                 self.t += 1
                 self.replay_buffer.append(
@@ -164,6 +164,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
                     action=action,
                     reward=reward,
                     terminal=terminal,
+                    reset=reset,
                 )
             self.update_if_dataset_is_ready()
 
@@ -192,13 +193,13 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             if self.num_q_update == 0:
                 self.logger.info("Start Update")
             sampled = self.replay_buffer.sample(self.batch_size)
-            self.batch = TorchTensorBatch(**sampled, device=self.device)
-            self._update_q(self.batch)
+            batch = TrainingBatch(**sampled, device=self.device)
+            self._update_q(batch)
             if self.num_q_update % self.policy_update_delay == 0:
-                self._update_policy(self.batch)
+                self._update_policy(batch)
                 self._sync_target_network()
 
-    def _update_q(self, batch: TorchTensorBatch):
+    def _update_q(self, batch: TrainingBatch):
         q1_loss, q2_loss = self.compute_q_loss(
             batch=batch,
         )
@@ -212,7 +213,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.num_q_update += 1
 
-    def _update_policy(self, batch: TorchTensorBatch):
+    def _update_policy(self, batch: TrainingBatch):
         actions = self.policy(batch.state).rsample()
         q = self.q1((batch.state, actions))
         policy_loss = -torch.mean(q)
@@ -225,7 +226,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.num_policy_update += 1
 
-    def compute_q_loss(self, batch: TorchTensorBatch):
+    def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy_target, self.q1_target, self.q2_target):
             next_actions: torch.Tensor = default_target_policy_smoothing_func(
                 self.policy_target(batch.next_state).sample()

@@ -1,28 +1,77 @@
-import gym
+from rlrl.buffers import TrainingBatch, EpisodicTrainingBatch, ReplayBuffer, EpisodeBuffer
+from rlrl.experiments import GymMDP
+from rlrl.wrappers import make_envs_for_training
+from rlrl.utils import is_state_terminal
 
-from rlrl.replay_buffers import TorchTensorBatch, ReplayBuffer
-from rlrl.wrappers import CastObservationToFloat32
+
+def example_replay_buffer():
+    env = make_envs_for_training("Swimmer-v3", 1)
+
+    def actor(state):
+        return env.action_space.sample()
+
+    interactions = GymMDP(env, actor, max_step=1000)
+
+    buffer = ReplayBuffer(10 ** 4)
+    for steps, states, next_states, actions, rewards, dones in interactions:
+        terminals = is_state_terminal(env, steps, dones)
+        for id, (state, next_state, action, reward, terminal, done) in enumerate(
+            zip(states, next_states, actions, rewards, terminals, dones)
+        ):
+            buffer.append(
+                id=id,
+                state=state,
+                next_state=next_state,
+                action=action,
+                reward=reward,
+                terminal=terminal,
+                reset=done,
+            )
+    s = buffer.sample(10)
+    batch = TrainingBatch(**s, device="cuda")
+    print(batch.reward)
+    print(batch[0:5].reward)
+    batch[0:5].reward += 100.0
+    print(batch.reward)
+
+
+def example_episode_buffer():
+    env = make_envs_for_training("Hopper-v3", 3)
+
+    def actor(state):
+        return env.action_space.sample()
+
+    interactions = GymMDP(env, actor, max_step=300)
+
+    buffer = EpisodeBuffer()
+
+    for steps, states, next_states, actions, rewards, dones in interactions:
+        terminals = is_state_terminal(env, steps, dones)
+        for id, (state, next_state, action, reward, terminal, done) in enumerate(
+            zip(states, next_states, actions, rewards, terminals, dones)
+        ):
+            buffer.append(
+                id=id,
+                state=state,
+                next_state=next_state,
+                action=action,
+                reward=reward,
+                terminal=terminal,
+                reset=done,
+            )
+
+    episodes = buffer.get_episodes()
+    batch = EpisodicTrainingBatch(episodes, "cuda")
+
+    print(batch[0].reward)
+    batch[0].reward += 100
+    print(batch.flatten.reward)
+    for episode in batch:
+        for transition in reversed(episode):
+            print(transition.reset)
+        break
 
 
 if __name__ == "__main__":
-    env = gym.make("Swimmer-v2")
-    env = CastObservationToFloat32(env)
-    done = False
-
-    buffer = ReplayBuffer(1e4)
-    state = env.reset()
-    while not done:
-        action = env.action_space.sample()
-        next_state, reward, done, _ = env.step(action)
-        buffer.append(
-            state=state,
-            next_state=next_state,
-            action=action,
-            reward=reward,
-            terminal=done,
-        )
-        state = next_state
-    s = buffer.sample(3)
-    batch = TorchTensorBatch(**s)
-    batch.to("cuda")
-    print(batch.reward)
+    example_replay_buffer()
+    example_episode_buffer()

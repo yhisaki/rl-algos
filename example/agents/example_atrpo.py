@@ -3,7 +3,7 @@ import logging
 from statistics import mean, stdev
 
 import wandb
-from rlrl.agents.atrpo_agent import AtrpoAgent
+from rlrl.agents import AtrpoAgent
 from rlrl.experiments import Evaluator, GymMDP
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed

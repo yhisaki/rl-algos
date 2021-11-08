@@ -1,7 +1,7 @@
 import collections
 import copy
 import logging
-from typing import Any, Optional, Tuple, Type, Union
+from typing import Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -11,9 +11,9 @@ from torch.optim import Adam, Optimizer
 
 import rlrl
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
+from rlrl.buffers import ReplayBuffer, TrainingBatch
 from rlrl.modules import evaluating, ortho_init
 from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
-from rlrl.replay_buffers import ReplayBuffer, TorchTensorBatch
 from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan, synchronize_parameters
 
 
@@ -199,10 +199,10 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         action = action.detach().cpu().numpy()
         return action
 
-    def observe(self, states, next_states, actions, rewards, terminals):
+    def observe(self, states, next_states, actions, rewards, terminals, resets):
         if self.training:
-            for state, next_state, action, reward, terminal in zip(
-                states, next_states, actions, rewards, terminals
+            for state, next_state, action, reward, terminal, reset in zip(
+                states, next_states, actions, rewards, terminals, resets
             ):
                 self.replay_buffer.append(
                     state=state,
@@ -210,6 +210,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
                     action=action,
                     reward=reward,
                     terminal=terminal,
+                    reset=reset,
                 )
             self.update_if_dataset_is_ready()
 
@@ -219,12 +220,12 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         if len(self.replay_buffer) > self.num_random_act:
             self.just_updated = True
             sampled = self.replay_buffer.sample(self.batch_size)
-            self.batch = TorchTensorBatch(**sampled, device=self.device)
-            self._update_q(self.batch)
-            self._update_policy_and_temperature(self.batch)
+            batch = TrainingBatch(**sampled, device=self.device)
+            self._update_q(batch)
+            self._update_policy_and_temperature(batch)
             self._sync_target_network()
 
-    def _update_q(self, batch: TorchTensorBatch):
+    def _update_q(self, batch: TrainingBatch):
         q1_loss, q2_loss = self.compute_q_loss(batch)
 
         self.q1_optimizer.zero_grad()
@@ -261,9 +262,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             tau=self.tau_q,
         )
 
-    def compute_q_loss(
-        self, batch: Union[TorchTensorBatch, Any]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def compute_q_loss(self, batch: TrainingBatch) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad(), evaluating(self.policy, self.q1_target, self.q2_target):
             next_action_distrib: distributions.Distribution = self.policy(batch.next_state)
             next_action = next_action_distrib.sample()
@@ -292,7 +291,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         return q1_loss, q2_loss
 
     def compute_policy_and_temperature_loss(
-        self, batch: TorchTensorBatch
+        self, batch: TrainingBatch
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         action_distrib: distributions.Distribution = self.policy(batch.state)
         action = action_distrib.rsample()
