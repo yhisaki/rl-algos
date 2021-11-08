@@ -1,8 +1,7 @@
 import collections
-import itertools
 import random
 from logging import Logger, getLogger
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import Iterable, Optional, Type, Union
 
 import torch
 import torch.nn.functional as F
@@ -10,7 +9,9 @@ from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
-from rlrl.agents.trpo_ppo_common import TorchTensorBatchTrpoPpo, _memory2batch
+from rlrl.agents.gae import generalized_advantage_estimation
+from rlrl.buffers.batch import EpisodicTrainingBatch, TrainingBatch
+from rlrl.buffers.episode_buffer import EpisodeBuffer
 from rlrl.modules import ZScoreFilter, ortho_init
 from rlrl.modules.distributions import (
     GaussianHeadWithStateIndependentCovariance,
@@ -127,9 +128,9 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         if self.state_normalizer is not None:
             self.state_normalizer.to(self.device)
 
-        self.memory = None
-        self.gamma = gamma
-        self.lambd = lambd
+        self.buffer = EpisodeBuffer()
+        self.gamma = gamma  # discount factor
+        self.lambd = lambd  # eligibility trace parameter
         self.standardize_advantages = True
         self.line_search_max_backtrack = line_search_max_backtrack
         self.conjugate_gradient_max_iter = conjugate_gradient_max_iter
@@ -156,11 +157,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         resets,
         **kwargs,
     ):
-        if self.memory is None:
-            self.num_envs = len(terminals)
-            self.memory = [[[]] for _ in range(self.num_envs)]
-
-        for i, (state, next_state, action, reward, terminal, reset) in enumerate(
+        for id, (state, next_state, action, reward, terminal, reset) in enumerate(
             zip(
                 states,
                 next_states,
@@ -170,7 +167,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 resets,
             )
         ):
-            transition = dict(
+            self.buffer.append(
+                id,
                 state=state,
                 action=action,
                 reward=reward,
@@ -179,10 +177,6 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
                 reset=reset,
                 **kwargs,
             )
-            self.memory[i][-1].append(transition)
-            if reset:
-                self.memory[i].append([])
-
         if self.training:
             self.update_if_dataset_is_ready()
 
@@ -205,63 +199,44 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             action = action.cpu().numpy()
         return action
 
-    def _memory_preprocessing(self, memory: List[List[Dict]]):
-        return _memory2batch(
-            memory,
-            self.gamma,
-            self.lambd,
-            self.vf,
-            self.policy,
-            self.state_normalizer,
-            device=self.device,
-        )
-
     def update_if_dataset_is_ready(self):
         assert self.training
         self.just_updated = False
-        memory_size = sum([len(episode) for episode in itertools.chain.from_iterable(self.memory)])
-        if memory_size >= self.update_interval:
+        if len(self.buffer) >= self.update_interval:
             self.just_updated = True
             self.num_update += 1
             self.logger.info(f"Update TRPO num: {self.num_update}")
-            self.memory = list(itertools.chain.from_iterable(self.memory))
+
+            episodes = self.buffer.get_episodes()
+            batch = EpisodicTrainingBatch(episodes, device=self.device)
+
             if self.state_normalizer:
-                self._update_state_normalizer(self.memory)
-            batch = self._memory_preprocessing(self.memory)
-            self._update_policy(batch)
-            self._update_vf(batch)
+                batch.flatten.state = self.state_normalizer(batch.flatten.state, update=True)
+                batch.flatten.next_state = self.state_normalizer(
+                    batch.flatten.next_state, update=False
+                )
+            adv, v_target = generalized_advantage_estimation(
+                batch, gamma=self.gamma, lambd=self.lambd, vf=self.vf, device=self.device
+            )
+            self._update_policy(batch.flatten, adv)
+            self._update_vf(batch.flatten, v_target)
+            self.buffer.clear()
 
-            self.memory = [[[]] for _ in range(self.num_envs)]  # reset memory
-
-    def _update_state_normalizer(self, memory):
-        def extract_state():
-            for epi in memory:
-                for transition in epi:
-                    yield transition["state"]
-
-        state = torch.tensor([s for s in extract_state()], device=self.device)
-        self.state_normalizer.update(state)
-
-    def _update_policy(self, batch: TorchTensorBatchTrpoPpo):
+    def _update_policy(self, batch: TrainingBatch, adv: torch.Tensor):
         if self.standardize_advantages:
-            std_adv, mean_adv = torch.std_mean(batch.adv, unbiased=False)
-            adv = (batch.adv - mean_adv) / (std_adv + 1e-8)
-        else:
-            adv = batch.adv
+            std_adv, mean_adv = torch.std_mean(adv, unbiased=False)
+            adv = (adv - mean_adv) / (std_adv + 1e-8)
 
-        state = batch.state
-        if self.state_normalizer:
-            state = self.state_normalizer(state, update=False)
-
-        action_distrib: distributions.Distribution = self.policy(state)
+        action_distrib: distributions.Distribution = self.policy(batch.state)
         # Distribution to compute KL div against
         with torch.no_grad():
             # torch.distributions.Distribution cannot be deepcopied
-            action_distrib_old = self.policy(state)
+            action_distrib_old: distributions.Distribution = self.policy(batch.state)
+            log_prob_old = action_distrib_old.log_prob(batch.action)
 
         gain = self._compute_gain(
             log_prob=action_distrib.log_prob(batch.action),
-            log_prob_old=batch.log_prob,
+            log_prob_old=log_prob_old,
             entropy=action_distrib.entropy(),
             adv=adv,
         )
@@ -277,6 +252,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             batch=batch,
             adv=adv,
             action_distrib_old=action_distrib_old,
+            log_prob_old=log_prob_old,
             gain=gain,
         )
 
@@ -293,8 +269,6 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         gain: torch.Tensor,
     ):
         kl: torch.Tensor = distributions.kl_divergence(action_distrib_old, action_distrib).mean()
-        # kl_grads = autograd.grad(kl, self.policy.parameters(), create_graph=True)
-        # flat_kl_grads_ = _flatten_and_concat_variables(kl_grads)
         self.policy.zero_grad()
         kl.backward(create_graph=True)
         kl_grads = nn.utils.convert_parameters.parameters_to_vector(
@@ -309,9 +283,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
 
         self.policy.zero_grad()
         gain.backward(retain_graph=True)
-        # gain_grads = autograd.grad(gain, self.policy.parameters(), create_graph=True)
-        # flat_gain_grads = _flatten_and_concat_variables(gain_grads).detach()
-        gain_grads = nn.utils.convert_parameters.parameters_to_vector(
+        gain_grads = nn.utils.convert_parameters.parameters_to_vector(  # δgain/δparams
             parameters_grad(self.policy.parameters())
         )
         step_direction = conjugate_gradient(
@@ -325,9 +297,10 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
     def _line_search(
         self,
         full_step,
-        batch: TorchTensorBatchTrpoPpo,
+        batch: TrainingBatch,
         adv,
         action_distrib_old,
+        log_prob_old,
         gain,
     ):
         """Do line search for a safe step size."""
@@ -337,11 +310,8 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
         ).detach()
 
         states = batch.state
-        if self.state_normalizer:
-            states = self.state_normalizer(states, update=False)
 
         actions = batch.action
-        log_prob_old = batch.log_prob
 
         for i in range(self.line_search_max_backtrack + 1):
             self.logger.info(f"Line search iteration: {i} step size: {step_size}")
@@ -382,7 +352,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             )
             nn.utils.convert_parameters.vector_to_parameters(flat_params, self.policy.parameters())
 
-    def _update_vf(self, batch: TorchTensorBatchTrpoPpo):
+    def _update_vf(self, batch: TrainingBatch, v_target: torch.Tensor):
         len_batch = len(batch)
 
         assert len_batch >= self.vf_batch_size
@@ -390,9 +360,7 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
             range(len_batch), self.vf_batch_size, self.vf_epoch
         ):
             state = batch.state[minibatch_indices]
-            if self.state_normalizer:
-                state = self.state_normalizer(state, update=False)
-            v_targ = batch.v_target[minibatch_indices]
+            v_targ = v_target[minibatch_indices]
             v_pred = self.vf(state)
             vf_loss = F.mse_loss(v_pred, v_targ[..., None])
             self.vf.zero_grad()

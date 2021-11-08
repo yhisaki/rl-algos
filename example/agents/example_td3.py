@@ -76,6 +76,7 @@ def train_td3():
             actions=actions,
             rewards=rewards,
             terminals=is_state_terminal(env, steps, dones),
+            resets=dones,
         )
 
         with agent.eval_mode():

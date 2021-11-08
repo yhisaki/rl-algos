@@ -27,13 +27,14 @@ class ReplayBuffer(AbstractReplayBuffer):
         self.capacity = int(capacity)
         self.memory = RandomAccessQueue(maxlen=capacity)
 
-    def append(self, state, next_state, action, reward, terminal, **kwargs):
+    def append(self, state, next_state, action, reward, terminal, reset, **kwargs):
         transition = dict(
             state=state,
             action=action,
             reward=reward,
             next_state=next_state,
             terminal=terminal,
+            reset=reset,
             **kwargs
         )
 

@@ -1,3 +1,3 @@
-from rlrl import agents, modules, replay_buffers, utils, wrappers
+from rlrl import agents, buffers, modules, utils, wrappers
 
-__all__ = ["agents", "modules", "replay_buffers", "utils", "wrappers"]
+__all__ = ["agents", "modules", "buffers", "utils", "wrappers"]

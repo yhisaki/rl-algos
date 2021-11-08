@@ -2,6 +2,7 @@ from typing import Optional
 
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
+from gym.vector.vector_env import VectorEnv
 
 from rlrl.wrappers.cast_observation_reward import CastObservationToFloat32, CastRewardToFloat32
 from rlrl.wrappers.normalize_action_space import NormalizeActionSpace
@@ -18,7 +19,7 @@ def make_env(env_id, seed: Optional[int] = None):
     return env
 
 
-def make_envs_for_training(env_id: str, num_envs: int, seeds):
+def make_envs_for_training(env_id: str, num_envs: int, seeds=None) -> VectorEnv:
     def _make_env():
         env = gym.make(env_id)
         env = NormalizeActionSpace(env)

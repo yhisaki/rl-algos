@@ -80,11 +80,12 @@ def train_sac():
     )
     for step, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
-            states,
-            next_states,
-            actions,
-            rewards,
-            is_state_terminal(env, step, dones),
+            states=states,
+            next_states=next_states,
+            actions=actions,
+            rewards=rewards,
+            terminals=is_state_terminal(env, step, dones),
+            resets=dones,
         )
 
         with agent.eval_mode():
