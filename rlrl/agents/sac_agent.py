@@ -225,14 +225,14 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             self._sync_target_network()
 
     def _update_q(self, batch: TorchTensorBatch):
-        self.q1_loss, self.q2_loss = self.compute_q_loss(batch)
+        q1_loss, q2_loss = self.compute_q_loss(batch)
 
         self.q1_optimizer.zero_grad()
-        self.q1_loss.backward()
+        q1_loss.backward()
         self.q1_optimizer.step()
 
         self.q2_optimizer.zero_grad()
-        self.q2_loss.backward()
+        q2_loss.backward()
         self.q2_optimizer.step()
 
     def _update_policy_and_temperature(self, batch):
@@ -286,8 +286,8 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         if self.calc_stats:
             self.q1_record.extend(predicted_q1.detach().cpu().numpy())
             self.q2_record.extend(predicted_q2.detach().cpu().numpy())
-            self.q1_loss_record.append(float(self.q1_loss))
-            self.q2_loss_record.append(float(self.q2_loss))
+            self.q1_loss_record.append(float(q1_loss))
+            self.q2_loss_record.append(float(q2_loss))
 
         return q1_loss, q2_loss
 
