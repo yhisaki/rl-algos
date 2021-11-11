@@ -11,6 +11,7 @@ def record_videos_from_actor(
     env: gym.Env,
     actor,
     num_videos=1,
+    frame_skip=1,
     pixel=False,
     dir=None,
     logger: logging.Logger = logging.getLogger(__name__),
@@ -29,7 +30,8 @@ def record_videos_from_actor(
             while True:
                 action = actor(state_and_pixels["state"])
                 state_and_pixels, reward, done, info = env.step(action)
-                video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
+                if step % frame_skip == 0:
+                    video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
                 reward_sum += reward
                 step += 1
                 if done:
