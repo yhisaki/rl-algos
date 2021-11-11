@@ -31,12 +31,11 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         q2: Optional[nn.Module] = None,
         q_optimizer_class: Type[Optimizer] = Adam,
         q_optimizer_kwargs: dict = {},
-        q_tau: float = 5e-3,
         policy: Optional[nn.Module] = None,
         policy_optimizer_class: Type[Optimizer] = Adam,
         policy_optimizer_kwargs: dict = {},
-        policy_tau: float = 5e-3,
         policy_update_delay: int = 2,
+        tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
         gamma: float = 0.99,
         replay_buffer: ReplayBuffer = ReplayBuffer(10 ** 6),
@@ -76,7 +75,6 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         )
         self.policy_head: StochasticHeadBase = self.policy[-1]
         self.policy_target = copy.deepcopy(self.policy).eval().requires_grad_(False)
-        self.policy_tau = policy_tau
         self.policy_update_delay = policy_update_delay
 
         # configure Q
@@ -106,7 +104,6 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
-        self.q_tau = q_tau
 
         self.q1_optimizer = q_optimizer_class(self.q1.parameters(), **q_optimizer_kwargs)
         self.q2_optimizer = q_optimizer_class(self.q2.parameters(), **q_optimizer_kwargs)
@@ -117,6 +114,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         self.explorer = explorer
 
         self.t = 0
+        self.tau = tau
         self.num_policy_update = 0
         self.num_q_update = 0
 
@@ -137,19 +135,19 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
             src=self.policy,
             dst=self.policy_target,
             method="soft",
-            tau=self.policy_tau,
+            tau=self.tau,
         )
         synchronize_parameters(
             src=self.q1,
             dst=self.q1_target,
             method="soft",
-            tau=self.q_tau,
+            tau=self.tau,
         )
         synchronize_parameters(
             src=self.q2,
             dst=self.q2_target,
             method="soft",
-            tau=self.q_tau,
+            tau=self.tau,
         )
 
     def observe(self, states, next_states, actions, rewards, terminals, resets) -> None:
