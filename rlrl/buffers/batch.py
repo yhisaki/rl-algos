@@ -1,10 +1,18 @@
 from typing import List
+import numpy as np
 
 import torch
 
 
 def _to_torch_tensor(arr, device):
-    return arr if isinstance(arr, torch.Tensor) else torch.tensor(arr, device=device)
+    if isinstance(arr, torch.Tensor):
+        return arr
+    elif isinstance(arr, np.ndarray):
+        return torch.tensor(arr, device=device)
+    elif isinstance(arr, list):
+        return torch.tensor(np.array(arr), device=device)
+    else:
+        raise RuntimeError()
 
 
 class TrainingBatch(object):

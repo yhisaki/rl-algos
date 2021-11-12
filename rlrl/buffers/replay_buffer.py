@@ -40,6 +40,13 @@ class ReplayBuffer(AbstractReplayBuffer):
 
         self.memory.append(transition)
 
+    def __getitem__(self, idx):
+        if isinstance(idx, int):
+            return self.memory[idx]
+        elif isinstance(idx, slice):
+            start, stop, step = idx.indices(len(self.memory))
+            return transpose_list_dict([self.memory[i] for i in range(start, stop, step)])
+
     def sample(self, n):
         assert len(self.memory) >= n
         s = self.memory.sample(n)
