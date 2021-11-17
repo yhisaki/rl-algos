@@ -4,7 +4,7 @@ from statistics import mean, stdev
 
 import wandb
 from rlrl.agents import TrpoAgent
-from rlrl.experiments import Evaluator, GymMDP
+from rlrl.experiments import Evaluator, Recoder, GymMDP
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, make_envs_for_training
@@ -16,7 +16,7 @@ def _add_header_to_dict_key(d: dict, header: str):
 
 def train_trpo():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Hopper-v2")
+    parser.add_argument("--env_id", type=str, default="Hopper-v3")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
@@ -71,7 +71,11 @@ def train_trpo():
         env=make_env(args.env_id, args.seed),
         eval_interval=args.eval_interval,
         num_evaluate=args.num_evaluate,
-        record_interval=args.max_step // args.num_videos,
+    )
+
+    recoder = Recoder(
+        env=make_env(args.env_id, args.seed),
+        record_interval=args.max_step // args.num_videos if args.num_videos > 0 else -1,
     )
 
     def actor(state):
@@ -89,10 +93,9 @@ def train_trpo():
             resets=dones,
         )
         with agent.eval_mode():
-
             # Evaluate
-            scores = evaluator.evaluate_if_necessary(interactions.total_step, actor)
-            if len(scores) != 0:
+            scores = evaluator.evaluate_if_necessary(interactions.total_step.sum(), actor)
+            if len(scores) > 0:
                 print(f"Evaluate Agent: mean_score: {mean(scores)} (stdev: {stdev(scores)})")
                 wandb.log(
                     {
@@ -103,22 +106,21 @@ def train_trpo():
                 )
 
             # Record videos
-            videos = evaluator.record_videos_if_necessary(
-                interactions.total_step, actor, pixel=True
-            )
+            videos = recoder.record_videos_if_necessary(interactions.total_step.sum(), actor)
             for video in videos:
                 wandb.log(
-                    {"step": interactions.total_step.sum(), "video": wandb.Video(video, fps=60)}
+                    {
+                        "step": interactions.total_step.sum(),
+                        "video": wandb.Video(video, fps=60, format="mp4"),
+                    }
                 )
 
         if agent.just_updated:
-            agent_stats = agent.get_statistics()
-            gym_stats = interactions.get_statistics()
             wandb.log(
                 {
                     "step": interactions.total_step.sum(),
-                    **_add_header_to_dict_key(agent_stats, "train"),
-                    **_add_header_to_dict_key(gym_stats, "train"),
+                    **_add_header_to_dict_key(agent.get_statistics(), "train"),
+                    **_add_header_to_dict_key(interactions.get_statistics(), "train"),
                 }
             )
 

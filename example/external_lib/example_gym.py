@@ -2,7 +2,7 @@ import gym
 from rlrl.wrappers import NormalizeActionSpace, CastObservationToFloat32, CastRewardToFloat32
 
 if __name__ == "__main__":
-    env = gym.make("Swimmer-v2")
+    env = gym.make("Swimmer-v3")
     env = NormalizeActionSpace(CastRewardToFloat32(CastObservationToFloat32(env)))
     env.action_space.seed(0)
     env.seed(0)

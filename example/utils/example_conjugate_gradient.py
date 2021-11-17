@@ -3,7 +3,7 @@ import torch
 
 if __name__ == "__main__":
     _A = torch.rand(3, 3)
-    A = _A@torch.t(_A)
+    A = _A @ torch.t(_A)
     x_true = torch.rand(3)
     b = torch.matmul(A, x_true)
 
