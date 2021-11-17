@@ -11,7 +11,7 @@ def make_env(env_name):
 
 
 def main():
-    env_id = "Ant-v2"
+    env_id = "Ant-v3"
     num_envs = 5
     vec_env = AsyncVectorEnv([make_env(env_id) for i in range(num_envs)])
 

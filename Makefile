@@ -4,8 +4,8 @@ doc:
 	cd doc && make html
 
 format:
-	isort rlrl/
-	black rlrl/
+	isort .
+	black .
 
 clean:
 	cd doc/ && make clean

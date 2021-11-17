@@ -37,7 +37,7 @@ def gym_wrapping(env, wrapper):
 
 def main():
     # wandb.init(project="example_rlrl")
-    env = gym.make("Hopper-v2")
+    env = gym.make("Hopper-v3")
     env = PixelObservationWrapper(env, pixels_only=False)
     env.reset()
     pixels = []

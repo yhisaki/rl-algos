@@ -7,7 +7,7 @@ def main():
     import gym
 
     logging.basicConfig(level=logging.INFO)
-    env = gym.make("Swimmer-v2")
+    env = gym.make("Swimmer-v3")
 
     def actor(state):
         return env.action_space.sample()
