@@ -2,12 +2,12 @@ import argparse
 import logging
 from statistics import mean, stdev
 
-
 import wandb
+
 from rlrl.agents.td3_agent import Td3Agent
-from rlrl.experiments import Evaluator, Recoder, GymMDP
+from rlrl.experiments import Evaluator, GymMDP, Recoder
 from rlrl.utils import is_state_terminal, manual_seed
-from rlrl.wrappers import make_env, make_envs_for_training
+from rlrl.wrappers import make_env, vectorize_env
 
 
 def _add_header_to_dict_key(d: dict, header: str):
@@ -39,7 +39,7 @@ def train_td3():
 
     manual_seed(args.seed)
 
-    env = make_envs_for_training(args.env_id, args.num_envs, args.seed)
+    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, seed=args.seed)
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space[0].shape[-1]
 
@@ -105,7 +105,7 @@ def train_td3():
                     }
                 )
 
-        if agent.just_updated:
+        if agent.just_updated and (interactions.total_step % args.agent_logging_interval == 0):
             wandb.log(
                 {
                     "step": interactions.total_step.sum(),

@@ -1,11 +1,11 @@
-from rlrl.buffers import TrainingBatch, EpisodicTrainingBatch, ReplayBuffer, EpisodeBuffer
+from rlrl.buffers import EpisodeBuffer, EpisodicTrainingBatch, ReplayBuffer, TrainingBatch
 from rlrl.experiments import GymMDP
-from rlrl.wrappers import make_envs_for_training
 from rlrl.utils import is_state_terminal
+from rlrl.wrappers import vectorize_env
 
 
 def example_replay_buffer():
-    env = make_envs_for_training("Swimmer-v3", 1)
+    env = vectorize_env("Swimmer-v3", 1)
 
     def actor(state):
         return env.action_space.sample()
@@ -36,7 +36,7 @@ def example_replay_buffer():
 
 
 def example_episode_buffer():
-    env = make_envs_for_training("Hopper-v3", 3)
+    env = vectorize_env(env_id="Hopper-v3", num_envs=3)
 
     def actor(state):
         return env.action_space.sample()

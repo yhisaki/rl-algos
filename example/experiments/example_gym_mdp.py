@@ -1,7 +1,9 @@
-from rlrl.experiments import GymMDP
+import logging
+
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
-import logging
+
+from rlrl.experiments import GymMDP
 
 
 def example_single_env(env_id: str):

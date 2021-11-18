@@ -1,4 +1,4 @@
-from typing import Optional
+from functools import partial
 
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
@@ -9,35 +9,27 @@ from rlrl.wrappers.normalize_action_space import NormalizeActionSpace
 from rlrl.wrappers.single_as_vector_env import SingleAsVectorEnv
 
 
-def make_env(env_id, seed: Optional[int] = None):
+def make_env(env_id, seed: int = 0) -> gym.Env:
     env = gym.make(env_id)
     env = CastObservationToFloat32(env)
     env = CastRewardToFloat32(env)
     env = NormalizeActionSpace(env)
-    if seed is not None:
-        env.seed(seed)
+    env.seed(seed)
     return env
 
 
-def make_envs_for_training(env_id: str, num_envs: int, seeds=None) -> VectorEnv:
-    def _make_env():
-        env = gym.make(env_id)
-        env = NormalizeActionSpace(env)
-        env = CastObservationToFloat32(env)
-        env = CastRewardToFloat32(env)
-        return env
-
+def vectorize_env(env_id: str, num_envs: int = 1, env_fn=make_env, seed=0) -> VectorEnv:
+    env_fns = [partial(env_fn, env_id=env_id) for _ in range(num_envs)]
     if num_envs == 1:
-        envs = SingleAsVectorEnv(_make_env())
+        envs = SingleAsVectorEnv(env_fns[0]())
     else:
-        envs = AsyncVectorEnv([_make_env for _ in range(num_envs)])
+        envs = AsyncVectorEnv(env_fns)
 
-    dummy_env = _make_env()
+    dummy_env = env_fns[0]()
 
     if hasattr(dummy_env, "spec"):
         setattr(envs, "spec", dummy_env.spec)
 
-    if seeds is not None:
-        envs.seed(seeds)
+    envs.seed(seed)
 
     return envs

@@ -1,7 +1,9 @@
-from rlrl.experiments import Recoder
 import logging
-import wandb
+
 import gym
+import wandb
+
+from rlrl.experiments import Recoder
 
 
 def main(env_id: str):

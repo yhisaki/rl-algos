@@ -1,5 +1,6 @@
 import gym
-from rlrl.wrappers import NormalizeActionSpace, CastObservationToFloat32, CastRewardToFloat32
+
+from rlrl.wrappers import CastObservationToFloat32, CastRewardToFloat32, NormalizeActionSpace
 
 if __name__ == "__main__":
     env = gym.make("Swimmer-v3")
