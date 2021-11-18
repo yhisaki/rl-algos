@@ -53,7 +53,7 @@ class AtrpoAgent(TrpoAgent):
         lambd: float = 0.97,
         entropy_coef: float = 0.01,
         max_kl: float = 0.01,
-        reset_cost=-100,
+        reset_cost=-0,
         line_search_max_backtrack: int = 10,
         conjugate_gradient_max_iter: int = 10,
         conjugate_gradient_damping=0.01,

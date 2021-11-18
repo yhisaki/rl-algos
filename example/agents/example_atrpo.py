@@ -8,7 +8,7 @@ from rlrl.agents import AtrpoAgent
 from rlrl.experiments import Evaluator, GymMDP, Recoder
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed
-from rlrl.wrappers import make_env, vectorize_env
+from rlrl.wrappers import make_env, vectorize_env, ResetCostWrapper
 
 
 def _add_header_to_dict_key(d: dict, header: str):
@@ -41,7 +41,12 @@ def train_atrpo():
 
     manual_seed(args.seed)
 
-    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, seed=args.seed)
+    def _make_env(*args, **kwargs):
+        return ResetCostWrapper(make_env(*args, **kwargs))
+
+    env = vectorize_env(
+        env_id=args.env_id, num_envs=args.num_envs, seed=args.seed, env_fn=_make_env
+    )
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space[0].shape[-1]
 

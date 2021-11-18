@@ -5,7 +5,7 @@ from rlrl.wrappers.utils import remove_wrapper
 
 
 class ResetCostWrapper(gym.Wrapper):
-    def __init__(self, env, reset_cost: int = -100, terminal_step: int = 1000):
+    def __init__(self, env, reset_cost: float = -100.0, terminal_step: int = 1000):
         env = remove_wrapper(env, TimeLimit)
         super().__init__(env)
         if self.env.spec is not None:
@@ -23,7 +23,9 @@ class ResetCostWrapper(gym.Wrapper):
         observation, reward, done, info = self.env.step(action)
         self._elapsed_steps += 1
         if done & (self._elapsed_steps < self._max_episode_steps):
+            reward_type = reward.dtype
             reward += self._reset_cost
+            reward = reward.astype(reward_type)
             self.env.reset()
             done = False
         elif self._elapsed_steps >= self._max_episode_steps:
