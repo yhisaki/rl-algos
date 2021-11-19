@@ -26,7 +26,7 @@ def train_atrpo():
     parser.add_argument("--vf_epoch", type=int, default=5)
     parser.add_argument("--vf_batch_size", type=int, default=64)
     parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
-    parser.add_argument("--use_state_normalizer", type=bool, default=True)
+    parser.add_argument("--use_state_normalizer", action="store_true")
     parser.add_argument("--max_step", type=int, default=10 ** 6)
     parser.add_argument("--eval_interval", type=int, default=5 * 10 ** 4)
     parser.add_argument("--num_evaluate", type=int, default=10)
@@ -96,6 +96,9 @@ def train_atrpo():
             terminals=is_state_terminal(env, steps, dones),
             resets=dones,
         )
+        # if is_state_terminal(env, steps, dones).any():
+        #     print("ERROOOOOOOOOOOOORRRRRRRR")
+        #     return
         with agent.eval_mode():
             # Evaluate
             scores = evaluator.evaluate_if_necessary(interactions.total_step.sum(), actor)
