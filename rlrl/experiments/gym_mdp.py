@@ -92,7 +92,9 @@ class GymMDP(Iterator):
 
         state = self.state
         action = self.actor(state)
-        self.state, reward, self.done, _ = self.env.step(action)
+        next_state, reward, self.done, info = self.env.step(action)
+
+        self.state = next_state
 
         self.total_episode += self.done
         self.total_step += np.ones_like(self.total_episode)
@@ -105,6 +107,7 @@ class GymMDP(Iterator):
             for idx in done_env_index:
                 self.reward_sum_record.append(self.episode_reward[idx])
                 self.step_record.append(self.episode_step[idx])
+                next_state[idx] = info[idx]["terminal_observation"]
                 self.logger.info(
                     f"env : {idx}, "
                     f"total_step = {self.total_step[idx]}, "
@@ -112,7 +115,7 @@ class GymMDP(Iterator):
                     f"step = {self.episode_step[idx]}"
                 )
 
-        return self.episode_step, state, self.state, action, reward, self.done
+        return self.episode_step, state, next_state, action, reward, self.done
 
     def get_statistics(self) -> dict:
         if self.calc_stats:

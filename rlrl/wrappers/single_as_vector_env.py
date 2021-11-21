@@ -20,6 +20,7 @@ class SingleAsVectorEnv(VectorEnv):
     def step_wait(self):
         observation, reward, done, info = self.env.step(self._action[0])
         if done:
+            info["terminal_observation"] = observation
             observation = self.env.reset()
         return np.array([observation]), np.array([reward]), np.array([done]), [info]
 
