@@ -31,10 +31,3 @@ class ResetCostWrapper(gym.Wrapper):
         elif self._elapsed_steps >= self._max_episode_steps:
             done = True
         return observation, reward, done, info
-
-
-if __name__ == "__main__":
-    from rlrl.wrappers import make_env
-
-    env = make_env("Hopper-v3")
-    print(env.unwrapped)
