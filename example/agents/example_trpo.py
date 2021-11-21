@@ -3,7 +3,6 @@ import logging
 from statistics import mean, stdev
 
 import wandb
-
 from rlrl.agents import TrpoAgent
 from rlrl.experiments import Evaluator, GymMDP, Recoder
 from rlrl.modules import ZScoreFilter
@@ -27,7 +26,7 @@ def train_trpo():
     parser.add_argument("--vf_epoch", type=int, default=5)
     parser.add_argument("--vf_batch_size", type=int, default=64)
     parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
-    parser.add_argument('--use_state_normalizer', action='store_true')
+    parser.add_argument("--use_state_normalizer", action="store_true")
     parser.add_argument("--max_step", type=int, default=10 ** 6)
     parser.add_argument("--eval_interval", type=int, default=5 * 10 ** 4)
     parser.add_argument("--num_evaluate", type=int, default=10)

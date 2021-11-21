@@ -1,8 +1,8 @@
 import logging
 
 import gym
-import wandb
 
+import wandb
 from rlrl.experiments import Recoder
 
 

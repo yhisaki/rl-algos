@@ -3,12 +3,11 @@ import logging
 from statistics import mean, stdev
 
 import wandb
-
 from rlrl.agents import AtrpoAgent
 from rlrl.experiments import Evaluator, GymMDP, Recoder
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed
-from rlrl.wrappers import make_env, vectorize_env, ResetCostWrapper
+from rlrl.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
 def _add_header_to_dict_key(d: dict, header: str):

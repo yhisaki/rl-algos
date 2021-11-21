@@ -1,9 +1,10 @@
 from typing import Type
 
 import gym
+from gym.core import Env
 
 
-def remove_wrapper(env: gym.Env, removed_wrapper_class: Type):
+def remove_wrapper(env: gym.Env, removed_wrapper_class: Type) -> Env:
     if not hasattr(env, "env"):
         return env
     if type(env) is removed_wrapper_class:
