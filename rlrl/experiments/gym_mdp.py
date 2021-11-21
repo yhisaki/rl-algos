@@ -90,11 +90,11 @@ class GymMDP(Iterator):
         if self.is_finish():
             raise StopIteration()
 
-        state = self.state
+        state = np.copy(self.state)
         action = self.actor(state)
         next_state, reward, self.done, info = self.env.step(action)
 
-        self.state = next_state
+        self.state = np.copy(next_state)
 
         self.total_episode += self.done
         self.total_step += np.ones_like(self.total_episode)
