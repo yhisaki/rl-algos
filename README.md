@@ -6,19 +6,19 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 
 ## Install Guide
 
-
 - Install from source
+
   ```
   pip install -e .
   ```
+  or
+  ```
+  pip install -e ".[dev]"
+  ```
 
-- Install from git
-  ```
-  pip install git+https://github.com/yhisaki/rlrl.git
-  ```
 - Uninstall
   ```
-  python3 setup.py develop -u
+  pip uninstall rlrl
   ```
 
 ## Implemented Alogorithms
@@ -31,9 +31,10 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 ## Results
 
 ### mujoco
+
 <img src=asset/Humanoid-v3.gif width=30%><img src=asset/Swimmer-v2.gif width=30%><img src=asset/HalfCheetah-v3.gif width=30%>
 <img src=asset/Hopper-v2.gif width=30%><img src=asset/Ant-v3.gif width=30%><img src=asset/Walker2d-v3.gif width=30%>
 
 ### box2d
-<img src=asset/BipedalWalker-v3.gif width=30%>
 
+<img src=asset/BipedalWalker-v3.gif width=30%>

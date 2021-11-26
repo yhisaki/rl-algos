@@ -8,5 +8,4 @@ log/
 .vscode/.ropeproject
 tmp/
 wandb/
-!rlrl/utils/wandb
-!experiment/external_lib/wandb
+.venv/
