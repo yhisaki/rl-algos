@@ -23,6 +23,18 @@ def default_target_policy_smoothing_func(batch_action):
 
 
 class Td3Agent(AttributeSavingMixin, AgentBase):
+    saved_attributes = (
+        "q1",
+        "q2",
+        "q1_target",
+        "q2_target",
+        "q1_optimizer",
+        "q2_optimizer",
+        "policy",
+        "policy_target",
+        "policy_optimizer",
+    )
+
     def __init__(
         self,
         dim_state: int,
