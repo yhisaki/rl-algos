@@ -5,7 +5,7 @@ from typing import Iterable, Optional, Type, Union
 
 import torch
 import torch.nn.functional as F
-from torch import cuda, distributions, nn
+from torch import autograd, cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 
 from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
@@ -270,10 +270,13 @@ class TrpoAgent(AttributeSavingMixin, AgentBase):
     ):
         kl: torch.Tensor = distributions.kl_divergence(action_distrib_old, action_distrib).mean()
         self.policy.zero_grad()
-        kl.backward(create_graph=True)
         kl_grads = nn.utils.convert_parameters.parameters_to_vector(
-            parameters_grad(self.policy.parameters())
+            autograd.grad(kl, self.policy.parameters(), create_graph=True)
         )
+        # kl.backward(create_graph=True)
+        # kl_grads = nn.utils.convert_parameters.parameters_to_vector(
+        #     parameters_grad(self.policy.parameters())
+        # )
 
         def fisher_vector_product_func(vec):
             vec = torch.as_tensor(vec)
