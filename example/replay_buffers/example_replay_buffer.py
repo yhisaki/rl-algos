@@ -1,5 +1,5 @@
 from rlrl.buffers import EpisodeBuffer, EpisodicTrainingBatch, ReplayBuffer, TrainingBatch
-from rlrl.experiments import GymMDP
+from rlrl.experiments import TransitionGenerator
 from rlrl.utils import is_state_terminal
 from rlrl.wrappers import vectorize_env
 
@@ -10,7 +10,7 @@ def example_replay_buffer():
     def actor(state):
         return env.action_space.sample()
 
-    interactions = GymMDP(env, actor, max_step=1000)
+    interactions = TransitionGenerator(env, actor, max_step=1000)
 
     buffer = ReplayBuffer(10 ** 4)
     for steps, states, next_states, actions, rewards, dones in interactions:
@@ -41,7 +41,7 @@ def example_episode_buffer():
     def actor(state):
         return env.action_space.sample()
 
-    interactions = GymMDP(env, actor, max_step=300)
+    interactions = TransitionGenerator(env, actor, max_step=300)
 
     buffer = EpisodeBuffer()
 

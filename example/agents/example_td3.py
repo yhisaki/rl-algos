@@ -5,7 +5,7 @@ from statistics import mean, stdev
 import wandb
 
 from rlrl.agents.td3_agent import Td3Agent
-from rlrl.experiments import Evaluator, GymMDP, Recoder
+from rlrl.experiments import Evaluator, TransitionGenerator, Recoder
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, vectorize_env
 
@@ -71,7 +71,7 @@ def train_td3():
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(env, actor, max_step=args.max_step)
+    interactions = TransitionGenerator(env, actor, max_step=args.max_step)
 
     for steps, states, next_states, actions, rewards, dones in interactions:
         agent.observe(

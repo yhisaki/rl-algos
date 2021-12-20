@@ -5,7 +5,7 @@ from statistics import mean, stdev
 import wandb
 
 from rlrl.agents import TrpoAgent
-from rlrl.experiments import Evaluator, GymMDP, Recoder
+from rlrl.experiments import Evaluator, TransitionGenerator, Recoder
 from rlrl.modules import ZScoreFilter
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, vectorize_env
@@ -44,7 +44,7 @@ def train_trpo():
 
     env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, seed=args.seed)
     dim_state = env.observation_space.shape[-1]
-    dim_action = env.action_space[0].shape[-1]
+    dim_action = env.action_space.shape[-1]
 
     logger.info(f"env = {env}")
     logger.info(f"dim_state = {dim_state}")
@@ -82,7 +82,7 @@ def train_trpo():
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(env, actor, max_step=args.max_step)
+    interactions = TransitionGenerator(env, actor, max_step=args.max_step)
 
     for steps, states, next_states, actions, rewards, dones in interactions:
         agent.observe(
