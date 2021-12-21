@@ -47,6 +47,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         policy_optimizer_class: Type[Optimizer] = Adam,
         policy_optimizer_kwargs: dict = {},
         policy_update_delay: int = 2,
+        policy_smoothing_func=default_target_policy_smoothing_func,
         tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
         gamma: float = 0.99,
@@ -88,6 +89,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         self.policy_head: StochasticHeadBase = self.policy[-1]
         self.policy_target = copy.deepcopy(self.policy).eval().requires_grad_(False)
         self.policy_update_delay = policy_update_delay
+        self.policy_smoothing_func = policy_smoothing_func
 
         # configure Q
         if q1 is None:
@@ -238,7 +240,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
     def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy_target, self.q1_target, self.q2_target):
-            next_actions: torch.Tensor = default_target_policy_smoothing_func(
+            next_actions: torch.Tensor = self.policy_smoothing_func(
                 self.policy_target(batch.next_state).sample()
             )
             next_q1 = self.q1_target((batch.next_state, next_actions))
