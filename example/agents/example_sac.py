@@ -5,7 +5,7 @@ from statistics import mean, stdev
 import wandb
 
 from rlrl.agents import SacAgent
-from rlrl.experiments import Evaluator, GymMDP, Recoder
+from rlrl.experiments import Evaluator, TransitionGenerator, Recoder
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, vectorize_env
 
@@ -73,7 +73,7 @@ def train_sac():
     def actor(state):
         return agent.act(state)
 
-    interactions = GymMDP(
+    interactions = TransitionGenerator(
         env,
         actor,
         max_step=args.max_step,

@@ -3,7 +3,7 @@ import logging
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
 
-from rlrl.experiments import GymMDP
+from rlrl.experiments import TransitionGenerator
 
 
 def example_single_env(env_id: str):
@@ -12,7 +12,7 @@ def example_single_env(env_id: str):
     def actor(_):
         return [env.action_space.sample()]
 
-    interactions = GymMDP(env, actor, max_step=1000)
+    interactions = TransitionGenerator(env, actor, max_step=1000)
 
     for _ in interactions:
         pass
@@ -28,7 +28,7 @@ def example_vector_env(env_id: str):
     def actor(_):
         return env.action_space.sample()
 
-    interactions = GymMDP(env, actor, max_episode=2)
+    interactions = TransitionGenerator(env, actor, max_episode=2)
 
     for _ in interactions:
         pass

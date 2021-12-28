@@ -1,5 +1,5 @@
 from rlrl.experiments.evaluator import Evaluator
-from rlrl.experiments.gym_mdp import GymMDP
+from rlrl.experiments.transition_generator import TransitionGenerator
 from rlrl.experiments.recorder import Recoder
 
-__all__ = ["GymMDP", "Recoder", "Evaluator"]
+__all__ = ["TransitionGenerator", "Recoder", "Evaluator"]
