@@ -6,13 +6,12 @@ setup(
     version="1.0.0",
     install_requires=[
         "torch",
-        "gym",
+        "gym@git+https://github.com/openai/gym.git",
         "numpy",
     ],
     extras_require={
         "dev": [
             "wandb",
-            "mujoco-py",
             "black",
             "flake8",
             "isort",
