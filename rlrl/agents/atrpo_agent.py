@@ -1,7 +1,6 @@
 import logging
 from typing import Optional, Type, Union
 
-import numpy as np
 import torch
 from torch import cuda, nn
 from torch.optim import Adam, Optimizer
@@ -53,7 +52,6 @@ class AtrpoAgent(TrpoAgent):
         lambd: float = 0.97,
         entropy_coef: float = 0.01,
         max_kl: float = 0.01,
-        reset_cost=-0,
         line_search_max_backtrack: int = 10,
         conjugate_gradient_max_iter: int = 10,
         conjugate_gradient_damping=0.01,
@@ -90,7 +88,6 @@ class AtrpoAgent(TrpoAgent):
             kl_stats_window=kl_stats_window,
             logger=logger,
         )
-        self.reset_cost = np.float32(reset_cost)
 
     def update_if_dataset_is_ready(self):
         assert self.training
@@ -108,8 +105,6 @@ class AtrpoAgent(TrpoAgent):
                 batch.flatten.next_state = self.state_normalizer(
                     batch.flatten.next_state, update=False
                 )
-
-            batch.flatten.reward += self.reset_cost * batch.flatten.terminal
 
             adv, v_target = average_version_generalized_advantage_estimation(
                 batch, lambd=self.lambd, vf=self.vf, device=self.device
