@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="rlrl",
@@ -21,5 +21,5 @@ setup(
     },
     description="Library for RL research",
     author="hisaki",
-    packages=["rlrl"],
+    packages=find_packages(),
 )
