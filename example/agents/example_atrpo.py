@@ -96,9 +96,7 @@ def train_atrpo():
             terminals=is_state_terminal(env, steps, dones),
             resets=dones,
         )
-        # if is_state_terminal(env, steps, dones).any():
-        #     print("ERROOOOOOOOOOOOORRRRRRRR")
-        #     return
+
         with agent.eval_mode():
             # Evaluate
             scores = evaluator.evaluate_if_necessary(interactions.total_step.sum(), actor)

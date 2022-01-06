@@ -3,7 +3,7 @@ from rlrl.wrappers import ResetCostWrapper, make_env
 
 def main():
     env = make_env("Hopper-v3")
-    env = ResetCostWrapper(env, terminal_step=300)
+    env = ResetCostWrapper(env, reset_cost=float("nan"), terminal_step=300)
     print(env)
 
     step = 0
