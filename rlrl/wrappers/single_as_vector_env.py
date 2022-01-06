@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 from gym.vector import VectorEnv
+from typing import List, Optional, Union
 
 
 class SingleAsVectorEnv(VectorEnv):
@@ -17,15 +18,15 @@ class SingleAsVectorEnv(VectorEnv):
     def step_async(self, actions) -> None:
         self._action = actions
 
-    def step_wait(self):
+    def step_wait(self, **kwargs):
         observation, reward, done, info = self.env.step(self._action[0])
         if done:
             info["terminal_observation"] = observation
             observation = self.env.reset()
         return np.array([observation]), np.array([reward]), np.array([done]), [info]
 
-    def reset_wait(self):
-        observation = self.env.reset()
+    def reset_wait(self, seed: Optional[Union[int, List[int]]] = None, **kwargs):
+        observation = self.env.reset(seed=seed, **kwargs)
         return np.array([observation])
 
     def close_extras(self, **kwargs):
