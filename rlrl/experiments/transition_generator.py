@@ -99,7 +99,7 @@ class TransitionGenerator(Iterator):
         self.total_episode += self.done
         self.total_step += np.ones_like(self.total_episode)
 
-        self.episode_reward += reward
+        self.episode_reward += np.nan_to_num(reward)
         self.episode_step += np.ones_like(self.episode_step)
 
         if self.done.any():

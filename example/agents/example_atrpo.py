@@ -48,7 +48,7 @@ def train_atrpo():
         env_id=args.env_id, num_envs=args.num_envs, seed=args.seed, env_fn=_make_env
     )
     dim_state = env.observation_space.shape[-1]
-    dim_action = env.action_space[0].shape[-1]
+    dim_action = env.action_space.shape[-1]
 
     logger.info(f"env = {env}")
     logger.info(f"dim_state = {dim_state}")
