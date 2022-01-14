@@ -8,8 +8,8 @@ from gym import Env
 from gym.vector.vector_env import VectorEnv
 
 from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan
-from rlrl.wrappers import SingleAsVectorEnv
 from rlrl.utils.transpose_list_dict import transpose_list_dict
+from rlrl.wrappers import SingleAsVectorEnv
 
 
 class TransitionGenerator(Iterator):

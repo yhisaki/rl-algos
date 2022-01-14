@@ -5,7 +5,7 @@ from statistics import mean, stdev
 import wandb
 
 from rlrl.agents.td3_agent import Td3Agent
-from rlrl.experiments import Evaluator, TransitionGenerator, Recoder
+from rlrl.experiments import Evaluator, Recoder, TransitionGenerator
 from rlrl.utils import is_state_terminal, manual_seed
 from rlrl.wrappers import make_env, vectorize_env
 

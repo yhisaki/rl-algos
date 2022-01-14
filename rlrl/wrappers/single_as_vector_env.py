@@ -1,7 +1,8 @@
+from typing import List, Optional, Union
+
 import gym
 import numpy as np
 from gym.vector import VectorEnv
-from typing import List, Optional, Union
 
 
 class SingleAsVectorEnv(VectorEnv):
