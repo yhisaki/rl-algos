@@ -36,9 +36,13 @@ class ResetCostWrapper(gym.Wrapper):
             if self._reward_type is None:  # executed only when step() is called for the first time.
                 self._reward_type = reward.dtype
             if done and (self._elapsed_steps < self._max_episode_steps):
-                info["is_terminal_state"] = True
                 done = False
                 self._reset_next_step = True
+
+        if self._reset_next_step:
+            info["is_terminal_state"] = True
+        else:
+            info["is_terminal_state"] = False
 
         self._elapsed_steps += 1
 
