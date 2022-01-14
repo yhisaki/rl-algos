@@ -13,7 +13,7 @@ def example_replay_buffer():
     interactions = TransitionGenerator(env, actor, max_step=1000)
 
     buffer = ReplayBuffer(10 ** 4)
-    for steps, states, next_states, actions, rewards, dones in interactions:
+    for steps, states, next_states, actions, rewards, dones, info in interactions:
         terminals = is_state_terminal(env, steps, dones)
         for id, (state, next_state, action, reward, terminal, done) in enumerate(
             zip(states, next_states, actions, rewards, terminals, dones)
@@ -45,7 +45,7 @@ def example_episode_buffer():
 
     buffer = EpisodeBuffer()
 
-    for steps, states, next_states, actions, rewards, dones in interactions:
+    for steps, states, next_states, actions, rewards, dones, info in interactions:
         terminals = is_state_terminal(env, steps, dones)
         for id, (state, next_state, action, reward, terminal, done) in enumerate(
             zip(states, next_states, actions, rewards, terminals, dones)

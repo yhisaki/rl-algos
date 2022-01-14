@@ -84,7 +84,7 @@ def train_trpo():
 
     interactions = TransitionGenerator(env, actor, max_step=args.max_step)
 
-    for steps, states, next_states, actions, rewards, dones in interactions:
+    for steps, states, next_states, actions, rewards, dones, info in interactions:
         agent.observe(
             states=states,
             next_states=next_states,

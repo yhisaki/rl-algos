@@ -9,6 +9,7 @@ from gym.vector.vector_env import VectorEnv
 
 from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan
 from rlrl.wrappers import SingleAsVectorEnv
+from rlrl.utils.transpose_list_dict import transpose_list_dict
 
 
 class TransitionGenerator(Iterator):
@@ -115,7 +116,15 @@ class TransitionGenerator(Iterator):
                     f"step = {self.episode_step[idx]}"
                 )
 
-        return self.episode_step, state, next_state, action, reward, self.done
+        return (
+            self.episode_step,
+            state,
+            next_state,
+            action,
+            reward,
+            self.done,
+            transpose_list_dict(info),
+        )
 
     def get_statistics(self) -> dict:
         if self.calc_stats:
