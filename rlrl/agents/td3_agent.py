@@ -81,7 +81,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
                 DeterministicHead(),
             ).to(self.device)
         else:
-            self.policy = policy
+            self.policy = policy.to(self.device)
 
         self.policy_optimizer = policy_optimizer_class(
             self.policy.parameters(), **policy_optimizer_kwargs
