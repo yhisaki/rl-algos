@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 
-def transpose_list_dict(lst: List[Dict]) -> Dict:
+def transpose_list_dict(lst: List[Dict], use_all_keys=True) -> Dict:
     """covert list of dictionary to dictionary of list
 
     lst = [
@@ -20,4 +20,11 @@ def transpose_list_dict(lst: List[Dict]) -> Dict:
     Returns:
         Dict: dictionary of list
     """
-    return {key: [dic[key] for dic in lst] for key in lst[0]}
+    keys = lst[0].keys()
+    for dct in lst:
+        if use_all_keys:
+            keys |= dct.keys()
+        else:
+            keys &= dct.keys()
+    return {key: [dct[key] if key in dct else None for dct in lst] for key in keys}
+
