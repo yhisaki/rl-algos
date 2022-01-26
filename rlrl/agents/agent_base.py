@@ -59,6 +59,10 @@ class AgentBase(object, metaclass=ABCMeta):
         finally:
             self.training = orig_mode
 
+    @abstractmethod
+    def get_statistics(self) -> dict:
+        pass
+
 
 class BatchAgentBase(object, metaclass=ABCMeta):
     """Abstract agent class."""
