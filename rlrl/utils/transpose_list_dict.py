@@ -27,4 +27,3 @@ def transpose_list_dict(lst: List[Dict], use_all_keys=True) -> Dict:
         else:
             keys &= dct.keys()
     return {key: [dct[key] if key in dct else None for dct in lst] for key in keys}
-

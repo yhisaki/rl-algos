@@ -3,7 +3,6 @@ import logging
 from statistics import mean, stdev
 
 import wandb
-
 from rlrl.agents import AtrpoAgent
 from rlrl.experiments import Evaluator, Recoder, TransitionGenerator
 from rlrl.modules import ZScoreFilter
