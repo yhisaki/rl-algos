@@ -4,8 +4,6 @@ from typing import Optional, Union
 import numpy as np
 from gym.core import Env
 
-from rlrl.wrappers.reset_cost_wrapper import ResetCostWrapper
-
 _warn_onece_flag = False
 
 
@@ -15,7 +13,7 @@ def is_state_terminal(
     done: Union[bool, np.ndarray],
     info: Optional[dict] = None,
 ):
-    if isinstance(env, ResetCostWrapper):
+    if "is_terminal_state" in info:
         return info["is_terminal_state"]
     if hasattr(env.spec, "max_episode_steps"):
         return done & (step < env.spec.max_episode_steps)

@@ -78,13 +78,13 @@ def train_sac():
         actor,
         max_step=args.max_step,
     )
-    for step, states, next_states, actions, rewards, dones in interactions:
+    for step, states, next_states, actions, rewards, dones, info in interactions:
         agent.observe(
             states=states,
             next_states=next_states,
             actions=actions,
             rewards=rewards,
-            terminals=is_state_terminal(env, step, dones),
+            terminals=is_state_terminal(env, step, dones, info),
             resets=dones,
         )
         with agent.eval_mode():

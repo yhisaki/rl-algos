@@ -93,7 +93,7 @@ def train_atrpo():
             next_states=next_states,
             actions=actions,
             rewards=rewards,
-            terminals=is_state_terminal(env, steps, dones),
+            terminals=is_state_terminal(env, steps, dones, info),
             resets=dones,
         )
 
