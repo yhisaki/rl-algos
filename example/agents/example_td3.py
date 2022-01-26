@@ -20,6 +20,7 @@ def train_td3():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--policy_update_delay", type=int, default=2)
     parser.add_argument("--max_step", type=int, default=10 ** 6)
@@ -55,6 +56,8 @@ def train_td3():
         gamma=args.gamma,
         batch_size=args.batch_size,
         policy_update_delay=args.policy_update_delay,
+        policy_optimizer_kwargs={"lr": args.lr},
+        q_optimizer_kwargs={"lr": args.lr},
     )
 
     evaluator = Evaluator(
