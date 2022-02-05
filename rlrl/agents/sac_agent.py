@@ -1,4 +1,3 @@
-import collections
 import copy
 import logging
 from typing import Optional, Tuple, Type, Union
@@ -14,7 +13,8 @@ from rlrl.agents.agent_base import AgentBase, AttributeSavingMixin
 from rlrl.buffers import ReplayBuffer, TrainingBatch
 from rlrl.modules import evaluating, ortho_init
 from rlrl.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
-from rlrl.utils import clear_if_maxlen_is_none, mean_or_nan, synchronize_parameters
+from rlrl.utils import synchronize_parameters
+from rlrl.utils.statistics import Statistics
 
 
 class TemperatureHolder(nn.Module):
@@ -39,6 +39,28 @@ class TemperatureHolder(nn.Module):
         self.log_temperature = nn.Parameter(
             torch.tensor(self.initial_log_temperature_value, dtype=torch.float32)
         )
+
+
+def default_q(dim_state, dim_action):
+    return nn.Sequential(
+        rlrl.modules.ConcatStateAction(),
+        ortho_init(nn.Linear(dim_state + dim_action, 256), gain=np.sqrt(1.0 / 3.0)),
+        nn.ReLU(),
+        ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
+        nn.ReLU(),
+        ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
+    )
+
+
+def default_policy(dim_state, dim_action):
+    return nn.Sequential(
+        ortho_init(nn.Linear(dim_state, 256), gain=np.sqrt(1.0 / 3.0)),
+        nn.ReLU(),
+        ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
+        nn.ReLU(),
+        ortho_init(nn.Linear(256, dim_action * 2), gain=np.sqrt(1.0 / 3.0)),
+        SquashedDiagonalGaussianHead(),
+    )
 
 
 class SacAgent(AttributeSavingMixin, AgentBase):
@@ -78,11 +100,6 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
         calc_stats: bool = True,
-        q_stats_window=None,
-        q_loss_stats_window=None,
-        policy_loss_stats_window=None,
-        entropy_stats_window=None,
-        temperature_loss_stats_window=None,
     ):
         self.logger: logging.Logger = logger
         if isinstance(device, str):
@@ -93,32 +110,12 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
 
         # configure Q
-        if q1 is None:
-            self.q1 = nn.Sequential(
-                rlrl.modules.ConcatStateAction(),
-                ortho_init(
-                    nn.Linear(self.dim_state + self.dim_action, 256), gain=np.sqrt(1.0 / 3.0)
-                ),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
-            ).to(self.device)
-        else:
-            self.q1 = q1.to(self.device)
-        if q2 is None:
-            self.q2 = nn.Sequential(
-                rlrl.modules.ConcatStateAction(),
-                ortho_init(
-                    nn.Linear(self.dim_state + self.dim_action, 256), gain=np.sqrt(1.0 / 3.0)
-                ),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
-            ).to(self.device)
-        else:
-            self.q2 = q2.to(self.device)
+        self.q1 = (
+            default_q(dim_state, dim_action).to(self.device) if q1 is None else q1.to(self.device)
+        )
+        self.q2 = (
+            default_q(dim_state, dim_action).to(self.device) if q2 is None else q2.to(self.device)
+        )
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
@@ -127,18 +124,11 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         self.q2_optimizer = q_optimizer_class(self.q2.parameters(), **q_optimizer_kwargs)
 
         # configure Policy
-        if policy is None:
-            self.policy = nn.Sequential(
-                ortho_init(nn.Linear(self.dim_state, 256), gain=np.sqrt(1.0 / 3.0)),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
-                nn.ReLU(),
-                ortho_init(nn.Linear(256, self.dim_action * 2), gain=np.sqrt(1.0 / 3.0)),
-                SquashedDiagonalGaussianHead(),
-            ).to(self.device)
-        else:
-            self.policy = policy.to(self.device)
-
+        self.policy = (
+            default_policy(dim_state, dim_action).to(self.device)
+            if policy is None
+            else policy.to(self.device)
+        )
         self.policy_head: StochasticHeadBase = self.policy[-1]
 
         if not isinstance(self.policy_head, StochasticHeadBase):
@@ -173,16 +163,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
 
         self.num_random_act = num_random_act
 
-        self.calc_stats = calc_stats
-
-        if self.calc_stats:
-            self.q1_record = collections.deque(maxlen=q_stats_window)
-            self.q2_record = collections.deque(maxlen=q_stats_window)
-            self.q1_loss_record = collections.deque(maxlen=q_loss_stats_window)
-            self.q2_loss_record = collections.deque(maxlen=q_loss_stats_window)
-            self.policy_loss_record = collections.deque(maxlen=policy_loss_stats_window)
-            self.entropy_record = collections.deque(maxlen=entropy_stats_window)
-            self.temperature_loss_record = collections.deque(maxlen=temperature_loss_stats_window)
+        self.stats = Statistics() if calc_stats else None
 
     def act(self, state: np.ndarray) -> np.ndarray:
         state = torch.tensor(state, device=self.device, requires_grad=False)
@@ -276,17 +257,17 @@ class SacAgent(AttributeSavingMixin, AgentBase):
                 next_q - entropy_term
             )
 
-        predicted_q1 = torch.flatten(self.q1((batch.state, batch.action)))
-        predicted_q2 = torch.flatten(self.q2((batch.state, batch.action)))
+        q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
+        q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
 
-        q1_loss = 0.5 * F.mse_loss(predicted_q1, q_target)
-        q2_loss = 0.5 * F.mse_loss(predicted_q2, q_target)
+        q1_loss = 0.5 * F.mse_loss(q1_pred, q_target)
+        q2_loss = 0.5 * F.mse_loss(q2_pred, q_target)
 
-        if self.calc_stats:
-            self.q1_record.extend(predicted_q1.detach().cpu().numpy())
-            self.q2_record.extend(predicted_q2.detach().cpu().numpy())
-            self.q1_loss_record.append(float(q1_loss))
-            self.q2_loss_record.append(float(q2_loss))
+        if self.stats is not None:
+            self.stats("q1_pred").extend(q1_pred.detach().cpu().numpy())
+            self.stats("q2_pred").extend(q2_pred.detach().cpu().numpy())
+            self.stats("q1_loss").append(float(q1_loss))
+            self.stats("q2_loss").append(float(q2_loss))
 
         return q1_loss, q2_loss
 
@@ -302,34 +283,13 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         temperature_loss = -torch.mean(
             self.temperature_holder() * (log_prob.detach() + self.target_entropy)
         )
-        if self.calc_stats:
-            self.policy_loss_record.append(float(policy_loss))
-            self.temperature_loss_record.append(float(temperature_loss))
-            self.entropy_record.extend(-log_prob.detach().cpu().numpy())
+        if self.stats is not None:
+            self.stats("policy_loss").append(float(policy_loss))
+            self.stats("temperature_loss").append(float(temperature_loss))
+            self.stats("entropy").extend(-log_prob.detach().cpu().numpy())
         return policy_loss, temperature_loss
 
     def get_statistics(self):
-        if self.calc_stats:
-            stats = {
-                "average_q1": mean_or_nan(self.q1_record),
-                "average_q2": mean_or_nan(self.q2_record),
-                "average_q1_loss": mean_or_nan(self.q1_loss_record),
-                "average_q2_loss": mean_or_nan(self.q2_loss_record),
-                "average_policy_loss": mean_or_nan(self.policy_loss_record),
-                "average_entropy": mean_or_nan(self.entropy_record),
-                "average_temperature_loss": mean_or_nan(self.temperature_loss_record),
-            }
-
-            clear_if_maxlen_is_none(
-                self.q1_record,
-                self.q2_record,
-                self.q1_loss_record,
-                self.q2_loss_record,
-                self.policy_loss_record,
-                self.entropy_record,
-                self.temperature_loss_record,
-            )
-
-            return stats
-        else:
-            self.logger.warning("get_statistics() is called even though the calc_stats is False.")
+        if self.stats is not None:
+            return self.stats.flush()
+        return {}
