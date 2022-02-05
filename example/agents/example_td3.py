@@ -19,7 +19,7 @@ def train_td3():
     parser.add_argument("--policy_update_delay", type=int, default=2)
     parser.add_argument("--max_step", type=int, default=10 ** 6)
     parser.add_argument("--eval_interval", type=int, default=10 ** 4)
-    parser.add_argument("--agent_logging_interval", type=int, default=10 ** 3)
+    parser.add_argument("--logging_interval", type=int, default=10 ** 3)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -73,7 +73,7 @@ def train_td3():
         env=env,
         agent=agent,
         max_steps=args.max_step,
-        logging_interval=args.agent_logging_interval,
+        logging_interval=args.logging_interval,
         recorder=recoder,
         evaluator=evaluator,
     )

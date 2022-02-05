@@ -16,7 +16,7 @@ def train_sac():
     parser.add_argument("--max_step", default=10 ** 6, type=int)
     parser.add_argument("--eval_interval", type=int, default=10 ** 4)
     parser.add_argument("--num_evaluate", type=int, default=10)
-    parser.add_argument("--agent_logging_interval", type=int, default=10 ** 3)
+    parser.add_argument("--logging_interval", type=int, default=10 ** 3)
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--replay_start_size", default=10 ** 4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
@@ -71,7 +71,7 @@ def train_sac():
         env=env,
         agent=agent,
         max_steps=args.max_step,
-        logging_interval=args.agent_logging_interval,
+        logging_interval=args.logging_interval,
         recorder=recoder,
         evaluator=evaluator,
     )
