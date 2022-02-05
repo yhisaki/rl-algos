@@ -18,7 +18,7 @@ def train_sac():
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--agent_logging_interval", type=int, default=10 ** 3)
     parser.add_argument("--gamma", default=0.99, type=float)
-    parser.add_argument("--t_init", default=10 ** 4, type=int)
+    parser.add_argument("--replay_start_size", default=10 ** 4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
@@ -50,7 +50,7 @@ def train_sac():
         dim_state=dim_state,
         dim_action=dim_action,
         gamma=args.gamma,
-        num_random_act=args.t_init,
+        replay_start_size=args.replay_start_size,
     )
 
     evaluator = Evaluator(

@@ -76,7 +76,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
         gamma: float = 0.99,
         replay_buffer: ReplayBuffer = ReplayBuffer(10 ** 6),
         batch_size: int = 256,
-        num_random_act: int = 25e3,
+        replay_start_size: int = 25e3,
         calc_stats: bool = True,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
@@ -120,7 +120,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
 
         self.replay_buffer = replay_buffer
         self.batch_size = batch_size
-        self.num_random_act = num_random_act
+        self.replay_start_size = replay_start_size
         self.explorer = explorer
 
         self.t = 0
@@ -189,7 +189,7 @@ class Td3Agent(AttributeSavingMixin, AgentBase):
     def update_if_dataset_is_ready(self):
         assert self.training
         self.just_updated = False
-        if len(self.replay_buffer) > self.num_random_act:
+        if len(self.replay_buffer) > self.replay_start_size:
             self.just_updated = True
             if self.num_q_update == 0:
                 self.logger.info("Start Update")

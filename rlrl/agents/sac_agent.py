@@ -96,7 +96,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         gamma: float = 0.99,
         tau_q: float = 5e-3,
-        num_random_act: int = 1e4,
+        replay_start_size: int = 1e4,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
         calc_stats: bool = True,
@@ -162,14 +162,14 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         # soft update parameter
         self.tau_q = tau_q
 
-        self.num_random_act = num_random_act
+        self.replay_start_size = replay_start_size
 
         self.stats = Statistics() if calc_stats else None
 
     def act(self, state: np.ndarray) -> np.ndarray:
         state = torch.tensor(state, device=self.device, requires_grad=False)
         if self.training:
-            if len(self.replay_buffer) <= self.num_random_act:
+            if len(self.replay_buffer) <= self.replay_start_size:
                 action = torch.rand(len(state), self.dim_action) * 2.0 - 1.0
             else:
                 action_distrib: distributions.Distribution = self.policy(state)
@@ -199,7 +199,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
     def update_if_dataset_is_ready(self):
         assert self.training
         self.just_updated = False
-        if len(self.replay_buffer) > self.num_random_act:
+        if len(self.replay_buffer) > self.replay_start_size:
             self.just_updated = True
             sampled = self.replay_buffer.sample(self.batch_size)
             batch = TrainingBatch(**sampled, device=self.device)
