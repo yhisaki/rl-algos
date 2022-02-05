@@ -1,4 +1,5 @@
 import copy
+import itertools
 import logging
 from typing import Optional, Tuple, Type, Union
 
@@ -71,8 +72,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         "q1_target",
         "q2_target",
         "policy_optimizer",
-        "q1_optimizer",
-        "q2_optimizer",
+        "q_optimizer",
         "temperature_holder",
         "temperature_optimizer",
     )
@@ -120,8 +120,9 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
 
-        self.q1_optimizer = q_optimizer_class(self.q1.parameters(), **q_optimizer_kwargs)
-        self.q2_optimizer = q_optimizer_class(self.q2.parameters(), **q_optimizer_kwargs)
+        self.q_optimizer = q_optimizer_class(
+            itertools.chain(self.q1.parameters(), self.q2.parameters()), **q_optimizer_kwargs
+        )
 
         # configure Policy
         self.policy = (
@@ -207,15 +208,11 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             self._sync_target_network()
 
     def _update_q(self, batch: TrainingBatch):
-        q1_loss, q2_loss = self.compute_q_loss(batch)
+        q_loss = self.compute_q_loss(batch)
 
-        self.q1_optimizer.zero_grad()
-        q1_loss.backward()
-        self.q1_optimizer.step()
-
-        self.q2_optimizer.zero_grad()
-        q2_loss.backward()
-        self.q2_optimizer.step()
+        self.q_optimizer.zero_grad()
+        q_loss.backward()
+        self.q_optimizer.step()
 
     def _update_policy_and_temperature(self, batch):
         self.policy_loss, self.temperature_loss = self.compute_policy_and_temperature_loss(batch)
@@ -243,7 +240,7 @@ class SacAgent(AttributeSavingMixin, AgentBase):
             tau=self.tau_q,
         )
 
-    def compute_q_loss(self, batch: TrainingBatch) -> Tuple[torch.Tensor, torch.Tensor]:
+    def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy, self.q1_target, self.q2_target):
             next_action_distrib: distributions.Distribution = self.policy(batch.next_state)
             next_action = next_action_distrib.sample()
@@ -260,16 +257,14 @@ class SacAgent(AttributeSavingMixin, AgentBase):
         q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
         q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
 
-        q1_loss = 0.5 * F.mse_loss(q1_pred, q_target)
-        q2_loss = 0.5 * F.mse_loss(q2_pred, q_target)
+        loss = 0.5 * (F.mse_loss(q1_pred, q_target) + F.mse_loss(q2_pred, q_target))
 
         if self.stats is not None:
             self.stats("q1_pred").extend(q1_pred.detach().cpu().numpy())
             self.stats("q2_pred").extend(q2_pred.detach().cpu().numpy())
-            self.stats("q1_loss").append(float(q1_loss))
-            self.stats("q2_loss").append(float(q2_loss))
+            self.stats("q_loss").append(float(loss))
 
-        return q1_loss, q2_loss
+        return loss
 
     def compute_policy_and_temperature_loss(
         self, batch: TrainingBatch
