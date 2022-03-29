@@ -1,4 +1,4 @@
-# RLRL
+# Reinforcement Learning Algorithms
 
 ## Overview
 
@@ -18,7 +18,7 @@ I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pf
 
 - Uninstall
   ```
-  pip uninstall rlrl
+  pip uninstall rl_algos
   ```
 
 ## Implemented Alogorithms

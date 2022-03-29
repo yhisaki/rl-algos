@@ -2,11 +2,11 @@ import argparse
 import logging
 
 import wandb
-from rlrl.agents import AtrpoAgent
-from rlrl.experiments import Evaluator, Recoder, training
-from rlrl.modules import ZScoreFilter
-from rlrl.utils import manual_seed
-from rlrl.wrappers import ResetCostWrapper, make_env, vectorize_env
+from rl_algos.agents import AtrpoAgent
+from rl_algos.experiments import Evaluator, Recoder, training
+from rl_algos.modules import ZScoreFilter
+from rl_algos.utils import manual_seed
+from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
 def train_atrpo():

@@ -1,11 +1,12 @@
 __pycache__/
-rlrl.egg-info/
+rl_algos.egg-info/
 build/
 _build/
 dist/
-rlrl/unused/
+rl_algos/unused/
 log/
 .vscode/.ropeproject
 tmp/
 wandb/
 .venv/
+.vscode/

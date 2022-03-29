@@ -36,7 +36,7 @@ def gym_wrapping(env, wrapper):
 
 
 def main():
-    # wandb.init(project="example_rlrl")
+    # wandb.init(project="example_rl_algos")
     env = gym.make("Hopper-v3")
     env = PixelObservationWrapper(env, pixels_only=False)
     env.reset()

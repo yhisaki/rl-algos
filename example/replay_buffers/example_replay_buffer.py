@@ -1,7 +1,7 @@
-from rlrl.buffers import EpisodeBuffer, EpisodicTrainingBatch, ReplayBuffer, TrainingBatch
-from rlrl.experiments import TransitionGenerator
-from rlrl.utils import is_state_terminal
-from rlrl.wrappers import vectorize_env
+from rl_algos.buffers import EpisodeBuffer, EpisodicTrainingBatch, ReplayBuffer, TrainingBatch
+from rl_algos.experiments import TransitionGenerator
+from rl_algos.utils import is_state_terminal
+from rl_algos.wrappers import vectorize_env
 
 
 def example_replay_buffer():

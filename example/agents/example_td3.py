@@ -2,10 +2,10 @@ import argparse
 import logging
 
 import wandb
-from rlrl.agents.td3_agent import Td3Agent
-from rlrl.experiments import Evaluator, Recoder, training
-from rlrl.utils import manual_seed
-from rlrl.wrappers import make_env, vectorize_env
+from rl_algos.agents.td3_agent import Td3Agent
+from rl_algos.experiments import Evaluator, Recoder, training
+from rl_algos.utils import manual_seed
+from rl_algos.wrappers import make_env, vectorize_env
 
 
 def train_td3():

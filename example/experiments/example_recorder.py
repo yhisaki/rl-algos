@@ -3,12 +3,12 @@ import logging
 import gym
 
 import wandb
-from rlrl.experiments import Recoder
+from rl_algos.experiments import Recoder
 
 
 def main(env_id: str):
     logging.basicConfig(level=logging.INFO)
-    wandb.init(project="example_rlrl")
+    wandb.init(project="example_rl_algos")
     env = gym.make(env_id)
 
     def actor(state):

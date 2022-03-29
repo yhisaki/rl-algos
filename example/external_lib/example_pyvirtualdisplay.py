@@ -1,7 +1,7 @@
 import gym
 from pyvirtualdisplay import Display
 
-from rlrl.wrappers import CastObservationToFloat32
+from rl_algos.wrappers import CastObservationToFloat32
 
 if __name__ == "__main__":
     display = Display(visible=False, backend="xvfb")

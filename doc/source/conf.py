@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "rlrl"
+project = "rl_algos"
 copyright = "2021, hisaki"
 author = "hisaki"
 

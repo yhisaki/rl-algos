@@ -2,7 +2,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="rlrl",
+    name="rl_algos",
     version="1.0.0",
     install_requires=[
         "torch",
