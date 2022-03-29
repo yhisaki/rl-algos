@@ -53,7 +53,7 @@ def _yield_minibatches(dataset, minibatch_size, num_epochs):
         buf = buf[:-minibatch_size]
 
 
-class TrpoAgent(AttributeSavingMixin, AgentBase):
+class TRPO(AttributeSavingMixin, AgentBase):
 
     saved_attributes = ("policy", "vf", "vf_optimizer", "state_normalizer")
 

@@ -64,7 +64,7 @@ def default_policy(dim_state, dim_action):
     )
 
 
-class SacAgent(AttributeSavingMixin, AgentBase):
+class SAC(AttributeSavingMixin, AgentBase):
 
     saved_attributes = (
         "q1",

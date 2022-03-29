@@ -2,7 +2,7 @@ import argparse
 import logging
 
 import wandb
-from rl_algos.agents import SacAgent
+from rl_algos.agents import SAC
 from rl_algos.experiments import Evaluator, Recoder, training
 from rl_algos.utils import manual_seed
 from rl_algos.wrappers import make_env, vectorize_env
@@ -46,7 +46,7 @@ def train_sac():
     logger.info(f"max_episode_steps = {env.spec.max_episode_steps}")
 
     # make agent
-    agent = SacAgent(
+    agent = SAC(
         dim_state=dim_state,
         dim_action=dim_action,
         gamma=args.gamma,

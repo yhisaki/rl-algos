@@ -5,7 +5,7 @@ import torch
 from torch import cuda, nn
 from torch.optim import Adam, Optimizer
 
-from rl_algos.agents.trpo_agent import TrpoAgent
+from rl_algos.agents.trpo_agent import TRPO
 from rl_algos.buffers import EpisodicTrainingBatch
 from rl_algos.modules.z_score_filter import ZScoreFilter
 
@@ -35,7 +35,7 @@ def average_version_generalized_advantage_estimation(
         return torch.tensor(advantages, device=device), torch.tensor(v_targets, device=device)
 
 
-class AtrpoAgent(TrpoAgent):
+class ATRPO(TRPO):
     def __init__(
         self,
         dim_state: int,

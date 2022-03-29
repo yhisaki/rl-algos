@@ -46,7 +46,7 @@ def default_q(dim_state, dim_action):
     )
 
 
-class Td3Agent(AttributeSavingMixin, AgentBase):
+class TD3(AttributeSavingMixin, AgentBase):
     saved_attributes = (
         "q1",
         "q2",
