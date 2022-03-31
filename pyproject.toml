@@ -5,3 +5,29 @@ line-length = 100
 profile = "black"
 line_length = 100
 multi_line_output = 3
+
+[tool.poetry]
+name = "rl-algos"
+version = "0.1.0"
+description = "Reinforcement Learning Library"
+repository = "https://github.com/yhisaki/rl-algos"
+authors = ["Y.Hisaki <yhisaki31@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+torch = "^1.11.0"
+gym = "^0.23.1"
+numpy = "^1.22.3"
+mujoco-py = "^2.1.2"
+
+
+[tool.poetry.dev-dependencies]
+wandb = { extras = ["media"], version = "^0.12.11" }
+black = "^22.3.0"
+flake8 = "^4.0.1"
+isort = "^5.10.1"
+pytest = "^7.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
