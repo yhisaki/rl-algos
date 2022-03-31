@@ -2,11 +2,11 @@ import argparse
 import logging
 
 import wandb
-from rlrl.agents import TrpoAgent
-from rlrl.experiments import Evaluator, Recoder, training
-from rlrl.modules import ZScoreFilter
-from rlrl.utils import manual_seed
-from rlrl.wrappers import make_env, vectorize_env
+from rl_algos.agents import TRPO
+from rl_algos.experiments import Evaluator, Recoder, training
+from rl_algos.modules import ZScoreFilter
+from rl_algos.utils import manual_seed
+from rl_algos.wrappers import make_env, vectorize_env
 
 
 def train_trpo():
@@ -46,7 +46,7 @@ def train_trpo():
     logger.info(f"action_space = {env.action_space}")
     logger.info(f"max_episode_steps = {env.spec.max_episode_steps}")
 
-    agent = TrpoAgent(
+    agent = TRPO(
         dim_state,
         dim_action,
         gamma=args.gamma,

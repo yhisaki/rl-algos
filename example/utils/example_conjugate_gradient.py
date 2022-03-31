@@ -1,6 +1,6 @@
 import torch
 
-from rlrl.utils import conjugate_gradient
+from rl_algos.utils import conjugate_gradient
 
 if __name__ == "__main__":
     _A = torch.rand(3, 3)

@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 
-from rlrl.utils.sample_n_k import sample_n_k
+from rl_algos.utils.sample_n_k import sample_n_k
 
 if __name__ == "__main__":
 

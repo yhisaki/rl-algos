@@ -1,6 +1,6 @@
 from torch import nn
 
-from rlrl.modules import evaluating
+from rl_algos.modules import evaluating
 
 if __name__ == "__main__":
     net1 = nn.Sequential(

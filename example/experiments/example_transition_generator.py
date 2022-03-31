@@ -3,7 +3,7 @@ import logging
 import gym
 from gym.vector.async_vector_env import AsyncVectorEnv
 
-from rlrl.experiments import TransitionGenerator
+from rl_algos.experiments import TransitionGenerator
 
 
 def example_single_env(env_id: str):

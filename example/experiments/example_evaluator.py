@@ -1,7 +1,7 @@
 import logging
 from statistics import mean, stdev
 
-from rlrl.experiments import Evaluator
+from rl_algos.experiments import Evaluator
 
 
 def main():

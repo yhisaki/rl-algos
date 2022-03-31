@@ -2,10 +2,10 @@ import argparse
 import logging
 
 import wandb
-from rlrl.agents.td3_agent import Td3Agent
-from rlrl.experiments import Evaluator, Recoder, training
-from rlrl.utils import manual_seed
-from rlrl.wrappers import make_env, vectorize_env
+from rl_algos.agents.td3_agent import TD3
+from rl_algos.experiments import Evaluator, Recoder, training
+from rl_algos.utils import manual_seed
+from rl_algos.wrappers import make_env, vectorize_env
 
 
 def train_td3():
@@ -44,7 +44,7 @@ def train_td3():
     logger.info(f"action_space = {env.action_space}")
     logger.info(f"max_episode_steps = {env.spec.max_episode_steps}")
 
-    agent = Td3Agent(
+    agent = TD3(
         dim_state=dim_state,
         dim_action=dim_action,
         gamma=args.gamma,

@@ -1,6 +1,6 @@
-from rlrl.experiments import TransitionGenerator
-from rlrl.utils.is_state_terminal import is_state_terminal
-from rlrl.wrappers import ResetCostWrapper, make_env, vectorize_env
+from rl_algos.experiments import TransitionGenerator
+from rl_algos.utils.is_state_terminal import is_state_terminal
+from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
 def example1():

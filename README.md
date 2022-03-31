@@ -1,25 +1,19 @@
-# RLRL
+# Reinforcement Learning Algorithms
 
 ## Overview
 
 I'm writing reinforcement learning code using [pfnet/pfrl](https://github.com/pfnet/pfrl) as a reference.
 
-## Install Guide
+## Install
 
-- Install from source
+This package is managed using [poetry](https://python-poetry.org/).
+You can install the dependencies by executing the following command.
+See the [pyproject.toml](./pyproject.toml) for the detail of dependencies.
+```
+poetry install
+```
 
-  ```
-  pip install -e .
-  ```
-  or
-  ```
-  pip install -e ".[dev]"
-  ```
-
-- Uninstall
-  ```
-  pip uninstall rlrl
-  ```
+If you excute examples, you should install [MuJoCo](https://mujoco.org/).
 
 ## Implemented Alogorithms
 
