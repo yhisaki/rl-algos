@@ -6,14 +6,14 @@ import wandb
 from rl_algos.agents.research import ADDPG
 from rl_algos.experiments import Evaluator, Recoder, training
 from rl_algos.utils import manual_seed
-from rl_algos.wrappers import make_env, vectorize_env
+from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
 def train_addpg():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Ant-v4")
     parser.add_argument("--group", type=str, default=None)
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--batch_size", type=int, default=256)
@@ -37,7 +37,10 @@ def train_addpg():
 
     manual_seed(args.seed)
 
-    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, seed=args.seed)
+    def _make_env(*env_args, **env_kwargs):
+        return ResetCostWrapper(make_env(*env_args, **env_kwargs), reset_cost=float("nan"))
+
+    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, env_fn=_make_env)
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]
 
@@ -57,14 +60,14 @@ def train_addpg():
     )
 
     evaluator = Evaluator(
-        env=make_env(args.env_id, args.seed),
+        env=make_env(args.env_id),
         eval_interval=args.eval_interval,
         num_evaluate=args.num_evaluate,
     )
 
     recoder = (
         Recoder(
-            env=make_env(args.env_id, args.seed),
+            env=make_env(args.env_id),
             record_interval=args.max_step // args.num_videos,
         )
         if args.num_videos > 0
