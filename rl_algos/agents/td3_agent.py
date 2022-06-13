@@ -74,7 +74,7 @@ class TD3(AttributeSavingMixin, AgentBase):
         tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
         gamma: float = 0.99,
-        replay_buffer: ReplayBuffer = ReplayBuffer(10 ** 6),
+        replay_buffer: ReplayBuffer = ReplayBuffer(10**6),
         batch_size: int = 256,
         replay_start_size: int = 25e3,
         calc_stats: bool = True,
@@ -248,8 +248,3 @@ class TD3(AttributeSavingMixin, AgentBase):
         if self.stats is not None:
             self.stats("policy_loss").append(float(policy_loss))
         return policy_loss
-
-    def get_statistics(self):
-        if self.stats is not None:
-            return self.stats.flush()
-        return {}

@@ -7,12 +7,14 @@ from typing import Any, List, Tuple
 # from gym.core import Env
 import torch
 from torch import cuda, nn
+from rl_algos.utils.statistics import Statistics
 
 
 class AgentBase(object, metaclass=ABCMeta):
     """Abstract agent class."""
 
     training = True
+    stats: Statistics
 
     @abstractmethod
     def act(self, *args, **kwargs) -> Any:
@@ -59,9 +61,10 @@ class AgentBase(object, metaclass=ABCMeta):
         finally:
             self.training = orig_mode
 
-    @abstractmethod
     def get_statistics(self) -> dict:
-        pass
+        if self.stats is not None:
+            return self.stats.flush()
+        return {}
 
 
 class BatchAgentBase(object, metaclass=ABCMeta):

@@ -283,8 +283,3 @@ class SAC(AttributeSavingMixin, AgentBase):
             self.stats("temperature_loss").append(float(temperature_loss))
             self.stats("entropy").extend(-log_prob.detach().cpu().numpy())
         return policy_loss, temperature_loss
-
-    def get_statistics(self):
-        if self.stats is not None:
-            return self.stats.flush()
-        return {}
