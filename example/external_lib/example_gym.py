@@ -1,12 +1,13 @@
 import gym
 
 from rl_algos.wrappers import CastObservationToFloat32, CastRewardToFloat32, NormalizeActionSpace
+from rl_algos.utils import manual_seed
 
 if __name__ == "__main__":
-    env = gym.make("Swimmer-v3")
+    env = gym.make("Swimmer-v4", disable_env_checker=True)
     env = NormalizeActionSpace(CastRewardToFloat32(CastObservationToFloat32(env)))
+    manual_seed(0)
     env.action_space.seed(0)
-    env.seed(0)
     step = 0
     for i in range(10):
         done = False

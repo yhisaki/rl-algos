@@ -6,7 +6,6 @@ from rl_algos.wrappers.cast_observation_reward import (
 from rl_algos.wrappers.make_env import make_env, vectorize_env
 from rl_algos.wrappers.normalize_action_space import NormalizeActionSpace
 from rl_algos.wrappers.reset_cost_wrapper import ResetCostWrapper
-from rl_algos.wrappers.single_as_vector_env import SingleAsVectorEnv
 from rl_algos.wrappers.utils import remove_wrapper, replace_wrapper
 
 __all__ = [
@@ -16,7 +15,6 @@ __all__ = [
     "make_env",
     "vectorize_env",
     "NormalizeActionSpace",
-    "SingleAsVectorEnv",
     "remove_wrapper",
     "replace_wrapper",
     "ResetCostWrapper",

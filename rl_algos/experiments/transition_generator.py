@@ -5,11 +5,9 @@ from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 from gym import Env
-from gym.vector.vector_env import VectorEnv
+from gym.vector import SyncVectorEnv, VectorEnv
 
 from rl_algos.utils import clear_if_maxlen_is_none, mean_or_nan
-from rl_algos.utils.transpose_list_dict import transpose_list_dict
-from rl_algos.wrappers import SingleAsVectorEnv
 
 
 class TransitionGenerator(Iterator):
@@ -55,7 +53,7 @@ class TransitionGenerator(Iterator):
         ), "Either max_episode or max_step must be set to a value."
 
         if not isinstance(self.env, VectorEnv):
-            self.env = SingleAsVectorEnv(self.env)
+            self.env = SyncVectorEnv(lambda: self.env)
 
         self.state = self.env.reset()
 
@@ -108,7 +106,7 @@ class TransitionGenerator(Iterator):
             for idx in done_env_index:
                 self.reward_sum_record.append(self.episode_reward[idx])
                 self.step_record.append(self.episode_step[idx])
-                next_state[idx] = info[idx]["terminal_observation"]
+                next_state[idx] = info["terminal_observation"][idx]
                 self.logger.info(
                     f"env : {idx}, "
                     f"total_step = {self.total_step[idx]}, "
@@ -123,7 +121,7 @@ class TransitionGenerator(Iterator):
             action,
             reward,
             self.done,
-            transpose_list_dict(info),
+            info,
         )
 
     def get_statistics(self) -> dict:
