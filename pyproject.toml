@@ -16,9 +16,9 @@ authors = ["Y.Hisaki <yhisaki31@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 torch = "^1.11.0"
-gym = "^0.23.1"
+gym = "^0.24.1"
 numpy = "^1.22.3"
-mujoco-py = "^2.1.2"
+mujoco-py = "<2.2,>=2.1"
 
 
 [tool.poetry.dev-dependencies]
