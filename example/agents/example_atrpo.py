@@ -11,7 +11,7 @@ from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 def train_atrpo():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Swimmer-v3")
+    parser.add_argument("--env_id", type=str, default="Swimmer-v4")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
@@ -21,8 +21,8 @@ def train_atrpo():
     parser.add_argument("--vf_batch_size", type=int, default=64)
     parser.add_argument("--conjugate_gradient_damping", type=float, default=1e-1)
     parser.add_argument("--use_state_normalizer", action="store_true")
-    parser.add_argument("--max_step", type=int, default=10 ** 6)
-    parser.add_argument("--eval_interval", type=int, default=5 * 10 ** 4)
+    parser.add_argument("--max_step", type=int, default=10**6)
+    parser.add_argument("--eval_interval", type=int, default=5 * 10**4)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -38,9 +38,8 @@ def train_atrpo():
     def _make_env(*args, **kwargs):
         return ResetCostWrapper(make_env(*args, **kwargs))
 
-    env = vectorize_env(
-        env_id=args.env_id, num_envs=args.num_envs, seed=args.seed, env_fn=_make_env
-    )
+    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, env_fn=_make_env)
+
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]
 
@@ -66,14 +65,14 @@ def train_atrpo():
     )
 
     evaluator = Evaluator(
-        env=make_env(args.env_id, args.seed),
+        env=make_env(args.env_id),
         eval_interval=args.eval_interval,
         num_evaluate=args.num_evaluate,
     )
 
     recoder = (
         Recoder(
-            env=make_env(args.env_id, args.seed),
+            env=make_env(args.env_id),
             record_interval=args.max_step // args.num_videos,
         )
         if args.num_videos > 0
