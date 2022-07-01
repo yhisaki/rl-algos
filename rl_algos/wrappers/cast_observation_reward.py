@@ -48,13 +48,13 @@ class CastObservationToFloat32(CastObservation):
         super().__init__(env, np.float32)
 
 
-class CastRewardToFloat32(gym.RewardWrapper):
+class CastRewardToFloat(gym.RewardWrapper):
     def __init__(self, env):
         super().__init__(env)
 
     def reward(self, reward):
         self.original_reward = reward
-        return reward.astype(np.float32, copy=False)
+        return float(reward)
 
     def __getattribute__(self, name: str) -> Any:
         return super().__getattribute__(name)
