@@ -1,7 +1,6 @@
 import copy
-import itertools
 import logging
-from typing import Callable, Optional, Tuple, Type, Union
+from typing import Callable, Tuple, Union
 
 import torch
 import torch.nn.functional as F
