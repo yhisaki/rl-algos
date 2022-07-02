@@ -53,7 +53,7 @@ class TransitionGenerator(Iterator):
         ), "Either max_episode or max_step must be set to a value."
 
         if not isinstance(self.env, VectorEnv):
-            self.env = SyncVectorEnv(lambda: self.env)
+            self.env = SyncVectorEnv([lambda: self.env])
 
         self.state = self.env.reset()
 
