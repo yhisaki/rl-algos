@@ -25,7 +25,7 @@ class RVI_TD3(TD3):
         dim_action: int,
         q_fn: NetworkAndOptimizerFunc = default_q_fn,
         policy_fn: NetworkAndOptimizerFunc = default_policy_fn,
-        policy_update_delay: int = 1,
+        policy_update_delay: int = 2,
         policy_smoothing_func=default_target_policy_smoothing_func,
         tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
