@@ -24,16 +24,16 @@ def default_target_policy_smoothing_func(batch_action):
 
 def default_policy_fn(dim_state, dim_action, device):
     net = nn.Sequential(
-        nn.Linear(dim_state, 256),
+        nn.Linear(dim_state, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, dim_action),
+        nn.Linear(300, dim_action),
         nn.Tanh(),
         DeterministicHead(),
     ).to(device)
 
-    opti = Adam(net.parameters(), lr=3e-4)
+    opti = Adam(net.parameters(), lr=1e-3)
 
     return net, opti
 
@@ -41,14 +41,14 @@ def default_policy_fn(dim_state, dim_action, device):
 def default_q_fn(dim_state, dim_action, device):
     net = nn.Sequential(
         ConcatStateAction(),
-        nn.Linear(dim_state + dim_action, 256),
+        nn.Linear(dim_state + dim_action, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, 1),
+        nn.Linear(300, 1),
     ).to(device)
 
-    opti = Adam(net.parameters(), lr=3e-4)
+    opti = Adam(net.parameters(), lr=1e-3)
 
     return net, opti
 

@@ -16,7 +16,7 @@ def train_rvi_td3():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--max_step", type=int, default=10**6)
-    parser.add_argument("--reset_cost", type=float, default=100.0)
+    parser.add_argument("--reset_cost", default="auto")
     parser.add_argument("--eval_interval", type=int, default=10**4)
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
@@ -39,6 +39,7 @@ def train_rvi_td3():
         return ResetCostWrapper(make_env(*env_args, **env_kwargs), reset_cost=float("nan"))
 
     env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, env_fn=_make_env)
+
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]
 
