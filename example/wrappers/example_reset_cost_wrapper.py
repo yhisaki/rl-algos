@@ -22,7 +22,7 @@ def example1():
 
 
 def example2():
-    env = ResetCostWrapper(make_env("Hopper-v3"))
+    env = ResetCostWrapper(make_env("Hopper-v4"))
     print(env)
 
     def actor(*arg, **kwargs):
@@ -38,7 +38,7 @@ def example3():
     def _make_env(*env_args, **env_kwargs):
         return ResetCostWrapper(make_env(*env_args, **env_kwargs))
 
-    env = vectorize_env(env_id="Hopper-v3", num_envs=3, seed=1, env_fn=_make_env)
+    env = vectorize_env(env_id="Pendulum-v1", num_envs=3, env_fn=_make_env)
     print(env)
 
     def actor(*arg, **kwargs):
@@ -51,4 +51,4 @@ def example3():
 
 
 if __name__ == "__main__":
-    example3()
+    example2()
