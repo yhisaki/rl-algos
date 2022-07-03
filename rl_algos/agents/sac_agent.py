@@ -1,19 +1,18 @@
 import copy
-import itertools
 import logging
-from typing import Optional, Tuple, Type, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
-from torch.optim import Adam, Optimizer
+from torch.optim import Adam
 
 import rl_algos
 from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
 from rl_algos.modules import evaluating, ortho_init
-from rl_algos.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
+from rl_algos.modules.distributions import SquashedDiagonalGaussianHead
 from rl_algos.utils import synchronize_parameters
 from rl_algos.utils.statistics import Statistics
 
@@ -42,26 +41,40 @@ class TemperatureHolder(nn.Module):
         )
 
 
-def default_q(dim_state, dim_action):
-    return nn.Sequential(
+def default_temparature_fn(device):
+    temparature = TemperatureHolder()
+    optim = Adam(temparature.parameters(), lr=1e-3)
+    return temparature, optim
+
+
+def default_q_fn(dim_state, dim_action, device):
+    net = nn.Sequential(
         rl_algos.modules.ConcatStateAction(),
         ortho_init(nn.Linear(dim_state + dim_action, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
-    )
+    ).to(device)
+
+    opti = Adam(net.parameters(), lr=3e-4)
+
+    return net, opti
 
 
-def default_policy(dim_state, dim_action):
-    return nn.Sequential(
+def default_policy_fn(dim_state, dim_action, device):
+    net = nn.Sequential(
         ortho_init(nn.Linear(dim_state, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, dim_action * 2), gain=np.sqrt(1.0 / 3.0)),
         SquashedDiagonalGaussianHead(),
-    )
+    ).to(device)
+
+    opti = Adam(net.parameters(), lr=3e-4)
+
+    return net, opti
 
 
 class SAC(AttributeSavingMixin, AgentBase):
@@ -81,21 +94,14 @@ class SAC(AttributeSavingMixin, AgentBase):
         self,
         dim_state: int,
         dim_action: int,
-        q1: Optional[nn.Module] = None,
-        q2: Optional[nn.Module] = None,
-        q_optimizer_class: Type[Optimizer] = Adam,
-        q_optimizer_kwargs: dict = {"lr": 3e-4},
-        policy: Optional[nn.Module] = None,
-        policy_optimizer_class: Type[Optimizer] = Adam,
-        policy_optimizer_kwargs: dict = {"lr": 3e-4},
-        temperature_holder: nn.Module = TemperatureHolder(),
-        temperature_optimizer_class: Type[Optimizer] = Adam,
-        temperature_optimizer_kwargs: dict = {"lr": 3e-4},
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
+        temperature_fn=default_temparature_fn,
         target_entropy: Optional[float] = None,
         replay_buffer: ReplayBuffer = ReplayBuffer(1e6),
         batch_size: int = 256,
         gamma: float = 0.99,
-        tau_q: float = 5e-3,
+        tau: float = 5e-3,
         replay_start_size: int = 1e4,
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
@@ -110,41 +116,18 @@ class SAC(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
 
         # configure Q
-        self.q1 = (
-            default_q(dim_state, dim_action).to(self.device) if q1 is None else q1.to(self.device)
-        )
-        self.q2 = (
-            default_q(dim_state, dim_action).to(self.device) if q2 is None else q2.to(self.device)
-        )
+        self.q1, self.q1_optimizer = q_fn(dim_state, dim_action, device)
+        self.q2, self.q2_optimizer = q_fn(dim_state, dim_action, device)
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
-        self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
-
-        self.q_optimizer = q_optimizer_class(
-            itertools.chain(self.q1.parameters(), self.q2.parameters()), **q_optimizer_kwargs
-        )
+        self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
 
         # configure Policy
-        self.policy = (
-            default_policy(dim_state, dim_action).to(self.device)
-            if policy is None
-            else policy.to(self.device)
-        )
-        self.policy_head: StochasticHeadBase = self.policy[-1]
-
-        if not isinstance(self.policy_head, StochasticHeadBase):
-            self.logger.warning("policy head is not stochasitic!!")
-
-        self.policy_optimizer = policy_optimizer_class(
-            self.policy.parameters(), **policy_optimizer_kwargs
-        )
+        self.policy, self.policy_optimizer = policy_fn(dim_state, dim_action, device)
+        self.policy_head = self.policy[-1]
 
         # configure Temperature
-        self.temperature_holder = temperature_holder.to(self.device)
-        self.temperature_optimizer = temperature_optimizer_class(
-            self.temperature_holder.parameters(), **temperature_optimizer_kwargs
-        )
-
+        self.temperature_holder, self.temperature_optimizer = temperature_fn(device)
         if target_entropy is None:
             self.target_entropy = -float(self.dim_action)
         else:
@@ -156,11 +139,9 @@ class SAC(AttributeSavingMixin, AgentBase):
 
         # discount factor
         self.gamma = gamma
-        if not ((0.0 < self.gamma) & (self.gamma < 1.0)):
-            raise ValueError("The discount rate must be greater than zero and less than one.")
 
         # soft update parameter
-        self.tau_q = tau_q
+        self.tau = tau
 
         self.replay_start_size = replay_start_size
 
@@ -210,9 +191,11 @@ class SAC(AttributeSavingMixin, AgentBase):
     def _update_q(self, batch: TrainingBatch):
         q_loss = self.compute_q_loss(batch)
 
-        self.q_optimizer.zero_grad()
+        self.q1_optimizer.zero_grad()
+        self.q2_optimizer.zero_grad()
         q_loss.backward()
-        self.q_optimizer.step()
+        self.q1_optimizer.step()
+        self.q2_optimizer.step()
 
     def _update_policy_and_temperature(self, batch):
         self.policy_loss, self.temperature_loss = self.compute_policy_and_temperature_loss(batch)
@@ -231,13 +214,13 @@ class SAC(AttributeSavingMixin, AgentBase):
             src=self.q1,
             dst=self.q1_target,
             method="soft",
-            tau=self.tau_q,
+            tau=self.tau,
         )
         synchronize_parameters(
             src=self.q2,
             dst=self.q2_target,
             method="soft",
-            tau=self.tau_q,
+            tau=self.tau,
         )
 
     def compute_q_loss(self, batch: TrainingBatch):
