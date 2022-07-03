@@ -1,11 +1,11 @@
 import copy
 import logging
-from typing import Callable, Tuple, Union
+from typing import Union
 
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
-from torch.optim import Adam, Optimizer
+from torch.optim import Adam
 
 from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
@@ -53,9 +53,6 @@ def default_q_fn(dim_state, dim_action, device):
     return net, opti
 
 
-NetworkAndOptimizerFunc = Callable[[int, int, torch.device], Tuple[nn.Module, Optimizer]]
-
-
 class TD3(AttributeSavingMixin, AgentBase):
     saved_attributes = (
         "q1",
@@ -72,8 +69,8 @@ class TD3(AttributeSavingMixin, AgentBase):
         self,
         dim_state: int,
         dim_action: int,
-        q_fn: NetworkAndOptimizerFunc = default_q_fn,
-        policy_fn: NetworkAndOptimizerFunc = default_policy_fn,
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
         policy_update_delay: int = 2,
         policy_smoothing_func=default_target_policy_smoothing_func,
         tau: float = 5e-3,
