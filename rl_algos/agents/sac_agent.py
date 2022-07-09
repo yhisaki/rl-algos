@@ -43,7 +43,7 @@ class TemperatureHolder(nn.Module):
 
 def default_temparature_fn(device):
     temparature = TemperatureHolder()
-    optim = Adam(temparature.parameters(), lr=1e-3)
+    optim = Adam(temparature.parameters(), lr=3e-4)
     return temparature, optim
 
 

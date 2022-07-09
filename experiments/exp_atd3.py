@@ -9,7 +9,7 @@ from rl_algos.utils import manual_seed
 from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
-def train_rvi_td3():
+def train_atd3():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Swimmer-v4")
     parser.add_argument("--group", type=str, default=None)
@@ -83,4 +83,4 @@ def train_rvi_td3():
 
 
 if __name__ == "__main__":
-    train_rvi_td3()
+    train_atd3()

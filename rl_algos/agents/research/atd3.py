@@ -90,14 +90,18 @@ class ATD3(TD3):
         self.reset_cost_optimizer.step()
 
     def _update_critic(self, batch: TrainingBatch):
-        super()._update_critic(batch)
-        self._update_rate(batch)
+        q_loss, rate_loss = self.compute_q_and_rate_loss(batch)
 
-    def _update_rate(self, batch: TrainingBatch):
-        rate_loss = self.compute_rate_loss(batch)
-        self.rate_optimizer.zero_grad()
-        rate_loss.backward()
-        self.rate_optimizer.step()
+        for optimizer in [self.q1_optimizer, self.q2_optimizer, self.rate_optimizer]:
+            optimizer.zero_grad()
+
+        for loss in [q_loss, rate_loss]:
+            loss.backward()
+
+        for optimizer in [self.q1_optimizer, self.q2_optimizer, self.rate_optimizer]:
+            optimizer.step()
+
+        self.num_q_update += 1
 
     def compute_reset_cost_loss(self, batch: TrainingBatch):
         reset_cost = self.reset_cost()
@@ -111,7 +115,7 @@ class ATD3(TD3):
 
         return loss
 
-    def compute_rate_loss(self, batch: TrainingBatch):
+    def compute_q_and_rate_loss(self, batch: TrainingBatch):
         with torch.no_grad():
             next_actions: torch.Tensor = self.policy_smoothing_func(
                 self.policy_target(batch.next_state).sample()
@@ -120,49 +124,35 @@ class ATD3(TD3):
             next_q2 = torch.flatten(self.q2_target((batch.next_state, next_actions)))
             next_q = torch.min(next_q1, next_q2)
 
+            reward = torch.nan_to_num(batch.reward, -float(self.reset_cost()))
+
+            q_target: torch.Tensor = reward - self.rate_target() + next_q
+
             current_q1 = torch.flatten(self.q1_target((batch.state, batch.action)))
             current_q2 = torch.flatten(self.q2_target((batch.state, batch.action)))
-
             current_q = (current_q1 + current_q2) / 2.0
 
-            rate_targets = (
-                torch.nan_to_num(batch.reward, -float(self.reset_cost())) - current_q + next_q
-            )
+            rate_target = reward - current_q + next_q
 
-        rate_pred: torch.Tensor = self.rate()
-        rate_loss = F.mse_loss(rate_pred, rate_targets.mean())
-        if self.stats is not None:
-            self.stats("rate_pred").append(float(rate_pred))
-            self.stats("rate_targets", methods=["mean", "var"]).extend(
-                rate_targets.detach().cpu().numpy()
-            )
-        return rate_loss
-
-    def compute_q_loss(self, batch: TrainingBatch):
-        with torch.no_grad():
-
-            next_actions: torch.Tensor = self.policy_smoothing_func(
-                self.policy_target(batch.next_state).sample()
-            )
-            next_q1 = torch.flatten(self.q1_target((batch.next_state, next_actions)))
-            next_q2 = torch.flatten(self.q2_target((batch.next_state, next_actions)))
-
-            q_target: torch.Tensor = (
-                torch.nan_to_num(batch.reward, -float(self.reset_cost()))
-                - self.rate_target()
-                + torch.min(next_q1, next_q2)
-            )
         q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
         q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
 
-        loss = F.mse_loss(q1_pred, q_target) + F.mse_loss(q2_pred, q_target)
+        q_loss = F.mse_loss(q1_pred, q_target) + F.mse_loss(q2_pred, q_target)
+
+        rate_pred = self.rate()
+
+        rate_loss = F.mse_loss(rate_pred, rate_target.mean())
 
         if self.stats is not None:
             self.stats("q1_pred").extend(q1_pred.detach().cpu().numpy())
             self.stats("q2_pred").extend(q2_pred.detach().cpu().numpy())
             self.stats("q_target").extend(q_target.detach().cpu().numpy())
-            self.stats("q_loss").append(loss.detach().cpu().numpy())
-        return loss
+            self.stats("q_loss").append(q_loss.detach().cpu().numpy())
+            self.stats("rate_pred").append(float(rate_pred))
+            self.stats("rate_targets", methods=["mean", "var"]).extend(
+                rate_target.detach().cpu().numpy()
+            )
+        return q_loss, rate_loss
 
     def _sync_target_network(self):
         synchronize_parameters(

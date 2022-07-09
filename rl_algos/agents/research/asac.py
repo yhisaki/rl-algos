@@ -69,8 +69,7 @@ class ASAC(SAC):
             self.just_updated = True
             sampled = self.replay_buffer.sample(self.batch_size)
             batch = TrainingBatch(**sampled, device=self.device)
-            self._update_q(batch)
-            self._update_rate(batch)
+            self._update_q_and_reset_cost(batch)
             self._update_reset_cost(batch)
             self._update_policy_and_temperature(batch)
             self._sync_target_network()
@@ -81,11 +80,17 @@ class ASAC(SAC):
         reset_cost_loss.backward()
         self.reset_cost_optimizer.step()
 
-    def _update_rate(self, batch: TrainingBatch):
-        rate_loss = self.compute_rate_loss(batch)
-        self.rate_optimizer.zero_grad()
-        rate_loss.backward()
-        self.rate_optimizer.step()
+    def _update_q_and_reset_cost(self, batch: TrainingBatch):
+        q_loss, rate_loss = self.compute_q_and_rate_loss(batch)
+
+        for optimizer in [self.q1_optimizer, self.q2_optimizer, self.rate_optimizer]:
+            optimizer.zero_grad()
+
+        for loss in [q_loss, rate_loss]:
+            loss.backward()
+
+        for optimizer in [self.q1_optimizer, self.q2_optimizer, self.rate_optimizer]:
+            optimizer.step()
 
     def compute_reset_cost_loss(self, batch: TrainingBatch):
         reset_cost = self.reset_cost()
@@ -99,64 +104,45 @@ class ASAC(SAC):
 
         return loss
 
-    def compute_q_loss(self, batch: TrainingBatch):
+    def compute_q_and_rate_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy, self.q1_target, self.q2_target):
             next_action_distrib: distributions.Distribution = self.policy(batch.next_state)
             next_action = next_action_distrib.sample()
             next_log_prob = next_action_distrib.log_prob(next_action)
-            next_q = torch.min(
-                self.q1_target((batch.next_state, next_action)),
-                self.q2_target((batch.next_state, next_action)),
-            )
-            entropy_term = float(self.temperature_holder()) * next_log_prob[..., None]
+
+            next_q1 = torch.flatten(self.q1_target((batch.next_state, next_action)))
+            next_q2 = torch.flatten(self.q2_target((batch.next_state, next_action)))
+            next_q = torch.min(next_q1, next_q2)
+            entropy_term = float(self.temperature_holder()) * next_log_prob
 
             reward = torch.nan_to_num(batch.reward, -float(self.reset_cost()))
-
-            q_target: torch.Tensor = (
-                reward - self.rate_target() + torch.flatten(next_q - entropy_term)
-            )
-
-        q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
-        q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
-
-        loss = 0.5 * (F.mse_loss(q1_pred, q_target) + F.mse_loss(q2_pred, q_target))
-
-        if self.stats is not None:
-            self.stats("q1_pred").extend(q1_pred.detach().cpu().numpy())
-            self.stats("q2_pred").extend(q2_pred.detach().cpu().numpy())
-            self.stats("q_target").extend(q_target.detach().cpu().numpy())
-            self.stats("q_loss").append(float(loss))
-
-        return loss
-
-    def compute_rate_loss(self, batch: TrainingBatch):
-        with torch.no_grad():
-            next_action_distrib: distributions.Distribution = self.policy(batch.next_state)
-            next_action = next_action_distrib.sample()
-            next_log_prob = next_action_distrib.log_prob(next_action)
-            next_q = torch.min(
-                self.q1_target((batch.next_state, next_action)),
-                self.q2_target((batch.next_state, next_action)),
-            )
-            entropy_term = float(self.temperature_holder()) * next_log_prob[..., None]
 
             current_q1 = torch.flatten(self.q1_target((batch.state, batch.action)))
             current_q2 = torch.flatten(self.q2_target((batch.state, batch.action)))
 
             current_q = (current_q1 + current_q2) / 2.0
 
-            reward = torch.nan_to_num(batch.reward, -float(self.reset_cost()))
+            q_target: torch.Tensor = reward - self.rate_target() + (next_q - entropy_term)
+            rate_target = reward - current_q + (next_q - entropy_term)
 
-            rate_targets = reward - current_q + torch.flatten(next_q - entropy_term)
+        q1_pred = torch.flatten(self.q1((batch.state, batch.action)))
+        q2_pred = torch.flatten(self.q2((batch.state, batch.action)))
 
-        rate_pred: torch.Tensor = self.rate()
-        rate_loss = F.mse_loss(rate_pred, rate_targets.mean())
+        q_loss = 0.5 * (F.mse_loss(q1_pred, q_target) + F.mse_loss(q2_pred, q_target))
+
+        rate_pred = self.rate()
+        rate_loss = F.mse_loss(rate_pred, rate_target.mean())
+
         if self.stats is not None:
+            self.stats("q1_pred").extend(q1_pred.detach().cpu().numpy())
+            self.stats("q2_pred").extend(q2_pred.detach().cpu().numpy())
+            self.stats("q_target").extend(q_target.detach().cpu().numpy())
+            self.stats("q_loss").append(float(q_loss))
             self.stats("rate_pred").append(float(rate_pred))
             self.stats("rate_targets", methods=["mean", "var"]).extend(
-                rate_targets.detach().cpu().numpy()
+                rate_target.detach().cpu().numpy()
             )
-        return rate_loss
+        return q_loss, rate_loss
 
     def _sync_target_network(self):
         synchronize_parameters(
