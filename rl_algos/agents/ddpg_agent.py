@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import Callable, Tuple, Union
+from typing import Any, Dict, Type, Union
 
 import torch
 import torch.nn.functional as F
@@ -16,7 +16,7 @@ from rl_algos.utils import synchronize_parameters
 from rl_algos.utils.statistics import Statistics
 
 
-def default_policy_fn(dim_state, dim_action, device):
+def default_policy_fn(dim_state, dim_action):
     net = nn.Sequential(
         nn.Linear(dim_state, 256),
         nn.ReLU(),
@@ -25,14 +25,12 @@ def default_policy_fn(dim_state, dim_action, device):
         nn.Linear(256, dim_action),
         nn.Tanh(),
         DeterministicHead(),
-    ).to(device)
+    )
 
-    opti = Adam(net.parameters(), lr=3e-4)
-
-    return net, opti
+    return net
 
 
-def default_q_fn(dim_state, dim_action, device):
+def default_q_fn(dim_state, dim_action):
     net = nn.Sequential(
         ConcatStateAction(),
         nn.Linear(dim_state + dim_action, 256),
@@ -40,14 +38,8 @@ def default_q_fn(dim_state, dim_action, device):
         nn.Linear(256, 256),
         nn.ReLU(),
         nn.Linear(256, 1),
-    ).to(device)
-
-    opti = Adam(net.parameters(), lr=3e-4)
-
-    return net, opti
-
-
-NetworkAndOptimizerFunc = Callable[[int, int, torch.device], Tuple[nn.Module, Optimizer]]
+    )
+    return net
 
 
 class DDPG(AttributeSavingMixin, AgentBase):
@@ -64,8 +56,8 @@ class DDPG(AttributeSavingMixin, AgentBase):
         self,
         dim_state: int,
         dim_action: int,
-        q_fn: NetworkAndOptimizerFunc = default_q_fn,
-        policy_fn: NetworkAndOptimizerFunc = default_policy_fn,
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
         tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
         gamma: float = 0.99,
@@ -73,6 +65,8 @@ class DDPG(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         replay_start_size: int = 25e3,
         calc_stats: bool = True,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {},
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
@@ -86,11 +80,13 @@ class DDPG(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
         self.gamma = gamma
 
-        self.policy, self.policy_optimizer = policy_fn(self.dim_state, self.dim_action, self.device)
+        self.policy = policy_fn(self.dim_state, self.dim_action).to(self.device)
         self.policy_target = copy.deepcopy(self.policy).eval().requires_grad_(False)
+        self.policy_optimizer = optimizer_class(self.policy.parameters(), **optimizer_kwargs)
 
-        self.q, self.q_optimizer = q_fn(self.dim_state, self.dim_action, self.device)
+        self.q = q_fn(self.dim_state, self.dim_action).to(self.device)
         self.q_target = copy.deepcopy(self.q).eval().requires_grad_(False)
+        self.q_optimizer = optimizer_class(self.q.parameters(), **optimizer_kwargs)
 
         self.replay_buffer = replay_buffer
         self.batch_size = batch_size

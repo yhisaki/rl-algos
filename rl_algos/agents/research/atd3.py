@@ -1,10 +1,12 @@
 import copy
 import logging
-from typing import Union
+from typing import Union, Any, Dict, Type
+
 
 import torch
 import torch.nn.functional as F
 from torch import cuda
+from torch.optim import Adam, Optimizer
 
 from rl_algos.agents.td3_agent import (
     TD3,
@@ -17,7 +19,7 @@ from rl_algos.explorers import ExplorerBase, GaussianExplorer
 from rl_algos.utils.sync_param import synchronize_parameters
 
 from .reset_cost import default_reset_cost_fn
-from .rate import default_rate_initializer
+from .rate import default_rate_fn
 
 
 class ATD3(TD3):
@@ -27,7 +29,7 @@ class ATD3(TD3):
         dim_action: int,
         q_fn=default_q_fn,
         policy_fn=default_policy_fn,
-        rate_fn=default_rate_initializer,
+        rate_fn=default_rate_fn,
         policy_update_delay: int = 2,
         policy_smoothing_func=default_target_policy_smoothing_func,
         tau: float = 5e-3,
@@ -37,6 +39,8 @@ class ATD3(TD3):
         replay_buffer: ReplayBuffer = ReplayBuffer(10**6),
         batch_size: int = 256,
         replay_start_size: int = 25e3,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         calc_stats: bool = True,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
@@ -54,16 +58,22 @@ class ATD3(TD3):
             replay_buffer=replay_buffer,
             batch_size=batch_size,
             replay_start_size=replay_start_size,
+            optimizer_class=optimizer_class,
+            optimizer_kwargs=optimizer_kwargs,
             calc_stats=calc_stats,
             logger=logger,
             device=device,
         )
 
-        self.reset_cost, self.reset_cost_optimizer = reset_cost_fn(self.device)
+        self.reset_cost = reset_cost_fn().to(self.device)
+        self.reset_cost_optimizer = optimizer_class(
+            self.reset_cost.parameters(), **optimizer_kwargs
+        )
         self.saved_attributes += ("reset_cost", "reset_cost_optimizer")
         self.target_terminal_probability = target_terminal_probability
 
-        self.rate, self.rate_optimizer = rate_fn(device)
+        self.rate = rate_fn().to(self.device)
+        self.rate_optimizer = optimizer_class(self.rate.parameters(), **optimizer_kwargs)
         self.rate_target = copy.deepcopy(self.rate).eval().requires_grad_(False)
 
     def update_if_dataset_is_ready(self):

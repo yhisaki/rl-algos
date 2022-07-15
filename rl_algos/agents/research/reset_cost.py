@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.optim import Adam
 
 
 class ResetCostHolder(nn.Module):
@@ -27,7 +26,5 @@ class FixedResetCost(nn.Module):
         return self.reset_cost + 0.0 * self.dummy_param
 
 
-def default_reset_cost_fn(device: torch.device):
-    rc = ResetCostHolder().to(device)
-    opti = Adam(rc.parameters(), lr=1e-3)
-    return rc, opti
+def default_reset_cost_fn():
+    return ResetCostHolder()

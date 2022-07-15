@@ -10,7 +10,7 @@ from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 def train_rvi_td3():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Swimmer-v4")
+    parser.add_argument("--env_id", type=str, default="Ant-v4")
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
@@ -24,7 +24,7 @@ def train_rvi_td3():
     args = parser.parse_args()
 
     wandb.init(
-        project="average-reward-rl", tags=["atd3", args.env_id], config=args, group=args.group
+        project="average-reward-rl", tags=["asac", args.env_id], config=args, group=args.group
     )
 
     wandb.config.update(args)

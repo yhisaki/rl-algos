@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.optim import Adam
 
 
 class RateHolder(nn.Module):
@@ -12,7 +11,6 @@ class RateHolder(nn.Module):
         return self.rate
 
 
-def default_rate_initializer(device: torch.device):
-    rate = RateHolder().to(device)
-    opti = Adam(rate.parameters(), lr=3e-4)
-    return rate, opti
+def default_rate_fn():
+    rate = RateHolder()
+    return rate

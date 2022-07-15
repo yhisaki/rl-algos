@@ -1,16 +1,12 @@
 import logging
-from typing import Union
+from typing import Any, Dict, Type, Union
 
 import torch
 import torch.nn.functional as F
 from torch import cuda
+from torch.optim import Adam, Optimizer
 
-from rl_algos.agents.ddpg_agent import (
-    DDPG,
-    NetworkAndOptimizerFunc,
-    default_policy_fn,
-    default_q_fn,
-)
+from rl_algos.agents.ddpg_agent import DDPG, default_policy_fn, default_q_fn
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
 from rl_algos.explorers import ExplorerBase, GaussianExplorer
 from rl_algos.modules import evaluating
@@ -21,14 +17,16 @@ class RVI_DDPG(DDPG):
         self,
         dim_state: int,
         dim_action: int,
-        q_fn: NetworkAndOptimizerFunc = default_q_fn,
-        policy_fn: NetworkAndOptimizerFunc = default_policy_fn,
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
         tau: float = 5e-3,
         explorer: ExplorerBase = GaussianExplorer(0.1, -1, 1),
         reset_cost: float = 100,
         replay_buffer: ReplayBuffer = ReplayBuffer(10**6),
         batch_size: int = 256,
         replay_start_size: int = 25e3,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         calc_stats: bool = True,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
@@ -44,6 +42,8 @@ class RVI_DDPG(DDPG):
             replay_buffer=replay_buffer,
             batch_size=batch_size,
             replay_start_size=replay_start_size,
+            optimizer_class=optimizer_class,
+            optimizer_kwargs=optimizer_kwargs,
             calc_stats=calc_stats,
             logger=logger,
             device=device,

@@ -1,12 +1,12 @@
 import copy
 import logging
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Type, Dict, Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
-from torch.optim import Adam
+from torch.optim import Adam, Optimizer
 
 import rl_algos
 from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
@@ -41,13 +41,12 @@ class TemperatureHolder(nn.Module):
         )
 
 
-def default_temparature_fn(device):
+def default_temparature_fn():
     temparature = TemperatureHolder()
-    optim = Adam(temparature.parameters(), lr=3e-4)
-    return temparature, optim
+    return temparature
 
 
-def default_q_fn(dim_state, dim_action, device):
+def default_q_fn(dim_state, dim_action):
     net = nn.Sequential(
         rl_algos.modules.ConcatStateAction(),
         ortho_init(nn.Linear(dim_state + dim_action, 256), gain=np.sqrt(1.0 / 3.0)),
@@ -55,14 +54,12 @@ def default_q_fn(dim_state, dim_action, device):
         ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
-    ).to(device)
+    )
 
-    opti = Adam(net.parameters(), lr=3e-4)
-
-    return net, opti
+    return net
 
 
-def default_policy_fn(dim_state, dim_action, device):
+def default_policy_fn(dim_state, dim_action):
     net = nn.Sequential(
         ortho_init(nn.Linear(dim_state, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
@@ -70,11 +67,9 @@ def default_policy_fn(dim_state, dim_action, device):
         nn.ReLU(),
         ortho_init(nn.Linear(256, dim_action * 2), gain=np.sqrt(1.0 / 3.0)),
         SquashedDiagonalGaussianHead(),
-    ).to(device)
+    )
 
-    opti = Adam(net.parameters(), lr=3e-4)
-
-    return net, opti
+    return net
 
 
 class SAC(AttributeSavingMixin, AgentBase):
@@ -103,6 +98,8 @@ class SAC(AttributeSavingMixin, AgentBase):
         gamma: float = 0.99,
         tau: float = 5e-3,
         replay_start_size: int = 1e4,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
         calc_stats: bool = True,
@@ -116,18 +113,28 @@ class SAC(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
 
         # configure Q
-        self.q1, self.q1_optimizer = q_fn(dim_state, dim_action, device)
-        self.q2, self.q2_optimizer = q_fn(dim_state, dim_action, device)
+
+        self.q1 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q1_optimizer = optimizer_class(self.q1.parameters(), **optimizer_kwargs)
+
+        self.q2 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q2_optimizer = optimizer_class(self.q2.parameters(), **optimizer_kwargs)
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
 
         # configure Policy
-        self.policy, self.policy_optimizer = policy_fn(dim_state, dim_action, device)
+        self.policy = policy_fn(dim_state, dim_action).to(self.device)
+        self.policy_optimizer = optimizer_class(self.policy.parameters(), **optimizer_kwargs)
+
         self.policy_head = self.policy[-1]
 
         # configure Temperature
-        self.temperature_holder, self.temperature_optimizer = temperature_fn(device)
+        self.temperature_holder = temperature_fn().to(self.device)
+        self.temperature_optimizer = optimizer_class(
+            self.temperature_holder.parameters(), **optimizer_kwargs
+        )
+
         if target_entropy is None:
             self.target_entropy = -float(self.dim_action)
         else:

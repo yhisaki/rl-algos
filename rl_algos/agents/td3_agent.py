@@ -1,11 +1,11 @@
 import copy
 import logging
-from typing import Union
+from typing import Any, Dict, Type, Union
 
 import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
-from torch.optim import Adam
+from torch.optim import Adam, Optimizer
 
 from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
@@ -22,35 +22,31 @@ def default_target_policy_smoothing_func(batch_action):
     return torch.clamp(batch_action + noise, -1, 1)
 
 
-def default_policy_fn(dim_state, dim_action, device):
+def default_policy_fn(dim_state, dim_action):
     net = nn.Sequential(
-        nn.Linear(dim_state, 400),
+        nn.Linear(dim_state, 256),
         nn.ReLU(),
-        nn.Linear(400, 300),
+        nn.Linear(256, 256),
         nn.ReLU(),
-        nn.Linear(300, dim_action),
+        nn.Linear(256, dim_action),
         nn.Tanh(),
         DeterministicHead(),
-    ).to(device)
+    )
 
-    opti = Adam(net.parameters(), lr=1e-3)
-
-    return net, opti
+    return net
 
 
-def default_q_fn(dim_state, dim_action, device):
+def default_q_fn(dim_state, dim_action):
     net = nn.Sequential(
         ConcatStateAction(),
-        nn.Linear(dim_state + dim_action, 400),
+        nn.Linear(dim_state + dim_action, 256),
         nn.ReLU(),
-        nn.Linear(400, 300),
+        nn.Linear(256, 256),
         nn.ReLU(),
-        nn.Linear(300, 1),
-    ).to(device)
+        nn.Linear(256, 1),
+    )
 
-    opti = Adam(net.parameters(), lr=1e-3)
-
-    return net, opti
+    return net
 
 
 class TD3(AttributeSavingMixin, AgentBase):
@@ -80,6 +76,8 @@ class TD3(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         replay_start_size: int = 25e3,
         calc_stats: bool = True,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
@@ -92,17 +90,21 @@ class TD3(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
         self.gamma = gamma
 
-        self.policy, self.policy_optimizer = policy_fn(self.dim_state, self.dim_action, self.device)
+        self.policy = policy_fn(self.dim_state, self.dim_action).to(self.device)
+        self.policy_optimizer = optimizer_class(self.policy.parameters(), **optimizer_kwargs)
         self.policy_target = copy.deepcopy(self.policy).eval().requires_grad_(False)
 
         self.policy_update_delay = policy_update_delay
         self.policy_smoothing_func = policy_smoothing_func
 
         # configure Q
-        self.q1, self.q1_optimizer = q_fn(self.dim_state, self.dim_action, self.device)
-        self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
+        self.q1 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q1_optimizer = optimizer_class(self.q1.parameters(), **optimizer_kwargs)
 
-        self.q2, self.q2_optimizer = q_fn(self.dim_state, self.dim_action, self.device)
+        self.q2 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q2_optimizer = optimizer_class(self.q2.parameters(), **optimizer_kwargs)
+
+        self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
 
         self.replay_buffer = replay_buffer
