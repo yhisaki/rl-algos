@@ -50,7 +50,6 @@ def train_sac():
         dim_state=dim_state,
         dim_action=dim_action,
         gamma=args.gamma,
-        replay_start_size=args.replay_start_size,
     )
 
     evaluator = Evaluator(

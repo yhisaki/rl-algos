@@ -35,10 +35,10 @@ class ASAC(SAC):
         rate_fn=default_rate_fn,
         tau: float = 5e-3,
         reset_cost_fn=default_reset_cost_fn,
-        target_terminal_probability: float = 1 / 256,
+        target_terminal_probability: float = 1 / 1000,
         replay_buffer: ReplayBuffer = ReplayBuffer(10**6),
         batch_size: int = 256,
-        replay_start_size: int = 25e3,
+        replay_start_size: int = 1e4,
         optimizer_class: Type[Optimizer] = Adam,
         optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         calc_stats: bool = True,
@@ -63,7 +63,7 @@ class ASAC(SAC):
             device=device,
         )
 
-        self.reset_rate = RateHolder().to(self.device)
+        self.reset_rate = ResetRate().to(self.device)
         self.reset_rate_target = copy.deepcopy(self.reset_rate).eval().requires_grad_(False)
         self.reset_rate_optimizer = optimizer_class(
             self.reset_rate.parameters(), **optimizer_kwargs
