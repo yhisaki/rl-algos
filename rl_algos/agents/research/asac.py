@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
+import rl_algos
 
 from rl_algos.agents.research.rate import RateHolder, default_rate_fn
 from rl_algos.agents.research.reset_cost import default_reset_cost_fn
@@ -21,7 +22,20 @@ class ResetRate(nn.Module):
         self.reset_rate_param = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
 
     def forward(self):
-        return torch.sigmoid(self.reset_rate_param)
+        return self.reset_rate_param
+
+
+def default_reset_q_fn(dim_state, dim_action):
+    net = nn.Sequential(
+        rl_algos.modules.ConcatStateAction(),
+        (nn.Linear(dim_state + dim_action, 64)),
+        nn.ReLU(),
+        (nn.Linear(64, 64)),
+        nn.ReLU(),
+        (nn.Linear(64, 1)),
+    )
+
+    return net
 
 
 class ASAC(SAC):
@@ -69,7 +83,7 @@ class ASAC(SAC):
             self.reset_rate.parameters(), **optimizer_kwargs
         )
 
-        self.reset_q = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.reset_q = default_reset_q_fn(self.dim_state, self.dim_action).to(self.device)
         self.reset_q_target = copy.deepcopy(self.reset_q).eval().requires_grad_(False)
         self.reset_q_optimizer = optimizer_class(self.reset_q.parameters(), **optimizer_kwargs)
 
