@@ -1,9 +1,10 @@
 import logging
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import torch
 import torch.nn.functional as F
 from torch import cuda
+from torch.optim import Optimizer, Adam
 
 from rl_algos.agents.td3_agent import (
     TD3,
@@ -33,6 +34,8 @@ class RVI_TD3(TD3):
         replay_buffer: ReplayBuffer = ReplayBuffer(10**6),
         batch_size: int = 256,
         replay_start_size: int = 25e3,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         calc_stats: bool = True,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
@@ -55,7 +58,10 @@ class RVI_TD3(TD3):
             device=device,
         )
 
-        self.reset_cost, self.reset_cost_optimizer = default_reset_cost_fn(self.device)
+        self.reset_cost = default_reset_cost_fn().to(self.device)
+        self.reset_cost_optimizer = optimizer_class(
+            self.reset_cost.parameters(), **optimizer_kwargs
+        )
         self.saved_attributes += ("reset_cost", "reset_cost_optimizer")
         self.target_terminal_probability = target_terminal_probability
 
@@ -96,9 +102,13 @@ class RVI_TD3(TD3):
 
     def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad():
+            actions: torch.Tensor = self.policy_smoothing_func(
+                self.policy_target(batch.state).sample()
+            )
+
             fq = torch.mean(
-                self.q1_target((batch.state, batch.action))
-                + self.q2_target((batch.state, batch.action))
+                (self.q1_target((batch.state, actions)) + self.q2_target((batch.state, actions)))
+                / 2
             )
             next_actions: torch.Tensor = self.policy_smoothing_func(
                 self.policy_target(batch.next_state).sample()
