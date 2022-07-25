@@ -24,6 +24,9 @@ class ResetRate(nn.Module):
     def forward(self):
         return self.reset_rate_param
 
+    def clip(self):
+        self.reset_rate_param.data = torch.clip(self.reset_rate_param, min=0.0, max=1.0)
+
 
 def default_reset_q_fn(dim_state, dim_action):
     net = nn.Sequential(
@@ -128,6 +131,8 @@ class ASAC(SAC):
             self.reset_cost_optimizer,
         ]:
             optimizer.step()
+
+        self.reset_rate.clip()
 
     def _update_q_and_rate(self, batch: TrainingBatch):
         q_loss, rate_loss = self.compute_q_and_rate_loss(batch)
