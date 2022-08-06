@@ -106,7 +106,7 @@ class TransitionGenerator(Iterator):
             for idx in done_env_index:
                 self.reward_sum_record.append(self.episode_reward[idx])
                 self.step_record.append(self.episode_step[idx])
-                next_state[idx] = info["terminal_observation"][idx]
+                next_state[idx] = info["final_observation"][idx]
                 self.logger.info(
                     f"env : {idx}, "
                     f"total_step = {self.total_step[idx]}, "
