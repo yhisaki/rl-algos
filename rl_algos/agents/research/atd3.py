@@ -5,8 +5,9 @@ from typing import Union, Any, Dict, Type
 
 import torch
 import torch.nn.functional as F
-from torch import cuda
+from torch import cuda, nn
 from torch.optim import Adam, Optimizer
+import rl_algos
 
 from rl_algos.agents.td3_agent import (
     TD3,
@@ -20,6 +21,31 @@ from rl_algos.utils.sync_param import synchronize_parameters
 
 from .reset_cost import default_reset_cost_fn
 from .rate import default_rate_fn
+
+
+class ResetRate(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reset_rate_param = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+
+    def forward(self):
+        return self.reset_rate_param
+
+    def clip(self):
+        self.reset_rate_param.data = torch.clip(self.reset_rate_param, min=0.0, max=1.0)
+
+
+def default_reset_q_fn(dim_state, dim_action):
+    net = nn.Sequential(
+        rl_algos.modules.ConcatStateAction(),
+        (nn.Linear(dim_state + dim_action, 64)),
+        nn.ReLU(),
+        (nn.Linear(64, 64)),
+        nn.ReLU(),
+        (nn.Linear(64, 1)),
+    )
+
+    return net
 
 
 class ATD3(TD3):
@@ -65,6 +91,16 @@ class ATD3(TD3):
             device=device,
         )
 
+        self.reset_rate = ResetRate().to(self.device)
+        self.reset_rate_target = copy.deepcopy(self.reset_rate).eval().requires_grad_(False)
+        self.reset_rate_optimizer = optimizer_class(
+            self.reset_rate.parameters(), **optimizer_kwargs
+        )
+
+        self.reset_q = default_reset_q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.reset_q_target = copy.deepcopy(self.reset_q).eval().requires_grad_(False)
+        self.reset_q_optimizer = optimizer_class(self.reset_q.parameters(), **optimizer_kwargs)
+
         self.reset_cost = reset_cost_fn().to(self.device)
         self.reset_cost_optimizer = optimizer_class(
             self.reset_cost.parameters(), **optimizer_kwargs
@@ -94,10 +130,25 @@ class ATD3(TD3):
                 self._sync_target_network()
 
     def _update_reset_cost(self, batch: TrainingBatch):
-        reset_cost_loss = self.compute_reset_cost_loss(batch)
-        self.reset_cost_optimizer.zero_grad()
-        reset_cost_loss.backward()
-        self.reset_cost_optimizer.step()
+        reset_q_loss, reset_rate_loss, reset_cost_loss = self.compute_reset_losses(batch)
+        for optimizer in [
+            self.reset_q_optimizer,
+            self.reset_rate_optimizer,
+            self.reset_cost_optimizer,
+        ]:
+            optimizer.zero_grad()
+
+        for loss in [reset_q_loss, reset_rate_loss, reset_cost_loss]:
+            loss.backward()
+
+        for optimizer in [
+            self.reset_q_optimizer,
+            self.reset_rate_optimizer,
+            self.reset_cost_optimizer,
+        ]:
+            optimizer.step()
+
+        self.reset_rate.clip()
 
     def _update_critic(self, batch: TrainingBatch):
         q_loss, rate_loss = self.compute_q_and_rate_loss(batch)
@@ -113,17 +164,37 @@ class ATD3(TD3):
 
         self.num_q_update += 1
 
-    def compute_reset_cost_loss(self, batch: TrainingBatch):
+    def compute_reset_losses(self, batch: TrainingBatch):
+        with torch.no_grad():
+            next_actions: torch.Tensor = self.policy_smoothing_func(
+                self.policy_target(batch.next_state).sample()
+            )
+
+            current_reset_q = torch.flatten(self.reset_q_target((batch.state, batch.action)))
+            next_reset_q = torch.flatten(self.reset_q_target((batch.next_state, next_actions)))
+            reward = torch.isnan(batch.reward).float()
+
+            reset_q_target = reward - self.reset_rate_target() + next_reset_q
+            reset_rate_target = reward - current_reset_q + next_reset_q
+
+        reset_rate_pred = self.reset_rate()
+        reset_q_pred: torch.Tensor = torch.flatten(self.reset_q((batch.state, batch.action)))
+
+        reset_q_loss = F.mse_loss(reset_q_pred, reset_q_target)
+        reset_rate_loss = F.mse_loss(reset_rate_pred, reset_rate_target.mean())
+
         reset_cost = self.reset_cost()
-        loss = -torch.mean(
-            reset_cost * (torch.isnan(batch.reward).float() - self.target_terminal_probability)
+        reset_cost_loss = -torch.mean(
+            reset_cost * (float(self.reset_rate()) - self.target_terminal_probability)
         )
 
         if self.stats is not None:
+            self.stats("reset_q").extend(reset_q_pred.detach().cpu().numpy())
+            self.stats("reset_rate").append(float(reset_rate_pred))
             self.stats("reset_cost").append(float(reset_cost))
-            self.stats("reset_cost_loss").append(float(loss))
+            self.stats("reset_cost_loss").append(float(reset_cost_loss))
 
-        return loss
+        return reset_q_loss, reset_rate_loss, reset_cost_loss
 
     def compute_q_and_rate_loss(self, batch: TrainingBatch):
         with torch.no_grad():

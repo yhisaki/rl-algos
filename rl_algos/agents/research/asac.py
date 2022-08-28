@@ -8,7 +8,7 @@ from torch import cuda, distributions, nn
 from torch.optim import Adam, Optimizer
 import rl_algos
 
-from rl_algos.agents.research.rate import RateHolder, default_rate_fn
+from rl_algos.agents.research.rate import RateHolder, default_rate_fn  # noqa
 from rl_algos.agents.research.reset_cost import default_reset_cost_fn
 from rl_algos.agents.sac_agent import SAC, default_policy_fn, default_q_fn, default_temparature_fn
 from rl_algos.buffers import ReplayBuffer, TrainingBatch

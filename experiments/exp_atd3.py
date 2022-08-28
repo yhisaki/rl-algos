@@ -11,7 +11,7 @@ from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 def train_atd3():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Swimmer-v4")
+    parser.add_argument("--env_id", type=str, default="Ant-v4")
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
@@ -52,6 +52,7 @@ def train_atd3():
     agent = ATD3(
         dim_state=dim_state,
         dim_action=dim_action,
+        target_terminal_probability=1 / 1000,
     )
 
     evaluator = Evaluator(
