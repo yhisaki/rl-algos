@@ -12,11 +12,13 @@ from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 def train_atd3():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Ant-v4")
+    parser.add_argument("--project", default="average-reward-rl", type=str)
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--max_step", type=int, default=10**6)
     parser.add_argument("--reset_cost", default="auto")
+    parser.add_argument("--target_terminal_probability", type=float, default=1 / 1000)
     parser.add_argument("--eval_interval", type=int, default=10**4)
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
@@ -24,9 +26,7 @@ def train_atd3():
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(
-        project="average-reward-rl", tags=["atd3", args.env_id], config=args, group=args.group
-    )
+    wandb.init(project=args.project, tags=["atd3", args.env_id], config=args, group=args.group)
 
     wandb.config.update(args)
 
@@ -52,7 +52,7 @@ def train_atd3():
     agent = ATD3(
         dim_state=dim_state,
         dim_action=dim_action,
-        target_terminal_probability=1 / 1000,
+        target_terminal_probability=args.target_terminal_probability,
     )
 
     evaluator = Evaluator(

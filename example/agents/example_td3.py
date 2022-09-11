@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import wandb
 from rl_algos.agents.td3_agent import TD3
@@ -11,6 +12,8 @@ from rl_algos.wrappers import make_env, vectorize_env
 def train_td3():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="HalfCheetah-v4")
+    parser.add_argument("--project", default="td3", type=str)
+    parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--gamma", type=float, default=0.99)
@@ -22,7 +25,7 @@ def train_td3():
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(project="td3", tags=["td3", args.env_id], config=args)
+    wandb.init(project=args.project, tags=["td3", args.env_id], config=args, group=args.group)
 
     wandb.config.update(args)
 
@@ -70,6 +73,9 @@ def train_td3():
         recorder=recoder,
         evaluator=evaluator,
     )
+
+    os.mkdir(os.path.join(wandb.run.dir, "model"))
+    agent.save(os.path.join(wandb.run.dir, "model"))
 
 
 if __name__ == "__main__":

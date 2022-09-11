@@ -7,6 +7,7 @@ from typing import Any, List, Tuple
 # from gym.core import Env
 import torch
 from torch import cuda, nn
+from rl_algos.buffers.abstract_replay_buffer import AbstractReplayBuffer
 from rl_algos.utils.statistics import Statistics
 
 
@@ -109,6 +110,8 @@ class AttributeSavingMixin(object):
                     attr_value is ancestor for ancestor in ancestors
                 ), "Avoid an infinite loop"
                 attr_value.__save(os.path.join(dirname, attr), ancestors)
+            elif isinstance(attr_value, AbstractReplayBuffer):
+                attr_value.save(os.path.join(dirname, attr))
             else:
                 if isinstance(
                     attr_value,
@@ -134,6 +137,8 @@ class AttributeSavingMixin(object):
                 assert not any(
                     attr_value is ancestor for ancestor in ancestors
                 ), "Avoid an infinite loop"
+                attr_value.load(os.path.join(dirname, attr))
+            elif isinstance(attr_value, AbstractReplayBuffer):
                 attr_value.load(os.path.join(dirname, attr))
             else:
                 if isinstance(

@@ -55,10 +55,12 @@ class TD3(AttributeSavingMixin, AgentBase):
         "q2",
         "q1_target",
         "q2_target",
-        "q_optimizer",
+        "q1_optimizer",
+        "q2_optimizer",
         "policy",
         "policy_target",
         "policy_optimizer",
+        "replay_buffer",
     )
 
     def __init__(
@@ -120,27 +122,6 @@ class TD3(AttributeSavingMixin, AgentBase):
         self.stats = Statistics() if calc_stats else None
 
         self.logger = logger
-
-    def _sync_target_network(self):
-        """Synchronize target network with current network."""
-        synchronize_parameters(
-            src=self.policy,
-            dst=self.policy_target,
-            method="soft",
-            tau=self.tau,
-        )
-        synchronize_parameters(
-            src=self.q1,
-            dst=self.q1_target,
-            method="soft",
-            tau=self.tau,
-        )
-        synchronize_parameters(
-            src=self.q2,
-            dst=self.q2_target,
-            method="soft",
-            tau=self.tau,
-        )
 
     def observe(self, states, next_states, actions, rewards, terminals, resets) -> None:
         if self.training:
@@ -239,3 +220,24 @@ class TD3(AttributeSavingMixin, AgentBase):
         if self.stats is not None:
             self.stats("policy_loss").append(float(policy_loss))
         return policy_loss
+
+    def _sync_target_network(self):
+        """Synchronize target network with current network."""
+        synchronize_parameters(
+            src=self.policy,
+            dst=self.policy_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q1,
+            dst=self.q1_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q2,
+            dst=self.q2_target,
+            method="soft",
+            tau=self.tau,
+        )

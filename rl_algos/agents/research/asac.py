@@ -42,6 +42,33 @@ def default_reset_q_fn(dim_state, dim_action):
 
 
 class ASAC(SAC):
+    saved_attributes = (
+        "q1",
+        "q2",
+        "q1_target",
+        "q2_target",
+        "q1_optimizer",
+        "q2_optimizer",
+        "policy_optimizer",
+        "temperature_holder",
+        "temperature_optimizer",
+        # rate
+        "rate",
+        "rate_optimizer",
+        "rate_target",
+        # reset
+        "reset_rate",
+        "reset_rate_target",
+        "reset_rate_optimizer",
+        "reset_q",
+        "reset_q_target",
+        "reset_q_optimizer",
+        "reset_cost",
+        "reset_cost_optimizer",
+        # replay buffer
+        "replay_buffer",
+    )
+
     def __init__(
         self,
         dim_state: int,
@@ -94,7 +121,6 @@ class ASAC(SAC):
         self.reset_cost_optimizer = optimizer_class(
             self.reset_cost.parameters(), **optimizer_kwargs
         )
-        self.saved_attributes += ("reset_cost", "reset_cost_optimizer")
         self.target_terminal_probability = target_terminal_probability
 
         self.rate = rate_fn().to(self.device)

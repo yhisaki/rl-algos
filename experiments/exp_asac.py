@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import wandb
 from rl_algos.agents.research import ASAC
@@ -8,14 +9,16 @@ from rl_algos.utils import manual_seed
 from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
 
 
-def train_rvi_td3():
+def train_asac():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Ant-v4")
+    parser.add_argument("--project", default="average-reward-rl", type=str)
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--max_step", type=int, default=10**6)
     parser.add_argument("--reset_cost", default="auto")
+    parser.add_argument("--target_terminal_probability", type=float, default=1 / 1000)
     parser.add_argument("--eval_interval", type=int, default=10**4)
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
@@ -23,9 +26,7 @@ def train_rvi_td3():
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(
-        project="average-reward-rl", tags=["asac", args.env_id], config=args, group=args.group
-    )
+    wandb.init(project=args.project, tags=["asac", args.env_id], config=args, group=args.group)
 
     wandb.config.update(args)
 
@@ -51,6 +52,7 @@ def train_rvi_td3():
     agent = ASAC(
         dim_state=dim_state,
         dim_action=dim_action,
+        target_terminal_probability=args.target_terminal_probability,
     )
 
     evaluator = Evaluator(
@@ -77,9 +79,9 @@ def train_rvi_td3():
         evaluator=evaluator,
     )
 
-    # os.mkdir(os.path.join(wandb.run.dir, "model"))
-    # agent.save(os.path.join(wandb.run.dir, "model"))
+    os.mkdir(os.path.join(wandb.run.dir, "model"))
+    agent.save(os.path.join(wandb.run.dir, "model"))
 
 
 if __name__ == "__main__":
-    train_rvi_td3()
+    train_asac()

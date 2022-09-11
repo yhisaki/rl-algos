@@ -79,10 +79,12 @@ class SAC(AttributeSavingMixin, AgentBase):
         "q2",
         "q1_target",
         "q2_target",
+        "q1_optimizer",
+        "q2_optimizer",
         "policy_optimizer",
-        "q_optimizer",
         "temperature_holder",
         "temperature_optimizer",
+        "replay_buffer",
     )
 
     def __init__(
@@ -215,21 +217,6 @@ class SAC(AttributeSavingMixin, AgentBase):
         self.temperature_loss.backward()
         self.temperature_optimizer.step()
 
-    def _sync_target_network(self):
-        """Synchronize target network with current network."""
-        synchronize_parameters(
-            src=self.q1,
-            dst=self.q1_target,
-            method="soft",
-            tau=self.tau,
-        )
-        synchronize_parameters(
-            src=self.q2,
-            dst=self.q2_target,
-            method="soft",
-            tau=self.tau,
-        )
-
     def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy, self.q1_target, self.q2_target):
             next_action_distrib: distributions.Distribution = self.policy(batch.next_state)
@@ -273,3 +260,18 @@ class SAC(AttributeSavingMixin, AgentBase):
             self.stats("temperature_loss").append(float(temperature_loss))
             self.stats("entropy").extend(-log_prob.detach().cpu().numpy())
         return policy_loss, temperature_loss
+
+    def _sync_target_network(self):
+        """Synchronize target network with current network."""
+        synchronize_parameters(
+            src=self.q1,
+            dst=self.q1_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q2,
+            dst=self.q2_target,
+            method="soft",
+            tau=self.tau,
+        )
