@@ -237,6 +237,18 @@ class ATD3(TD3):
 
     def _sync_target_network(self):
         synchronize_parameters(
+            src=self.reset_rate,
+            dst=self.reset_rate_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.reset_q,
+            dst=self.reset_q_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
             src=self.rate,
             dst=self.rate_target,
             method="soft",
