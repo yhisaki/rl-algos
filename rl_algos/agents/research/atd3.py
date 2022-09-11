@@ -66,7 +66,7 @@ class ATD3(TD3):
         batch_size: int = 256,
         replay_start_size: int = 25e3,
         optimizer_class: Type[Optimizer] = Adam,
-        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
+        optimizer_kwargs: Dict[str, Any] = {"lr": 1e-3},
         calc_stats: bool = True,
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),

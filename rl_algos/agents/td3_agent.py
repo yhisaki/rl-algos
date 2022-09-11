@@ -24,11 +24,11 @@ def default_target_policy_smoothing_func(batch_action):
 
 def default_policy_fn(dim_state, dim_action):
     net = nn.Sequential(
-        nn.Linear(dim_state, 256),
+        nn.Linear(dim_state, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, dim_action),
+        nn.Linear(300, dim_action),
         nn.Tanh(),
         DeterministicHead(),
     )
@@ -39,11 +39,11 @@ def default_policy_fn(dim_state, dim_action):
 def default_q_fn(dim_state, dim_action):
     net = nn.Sequential(
         ConcatStateAction(),
-        nn.Linear(dim_state + dim_action, 256),
+        nn.Linear(dim_state + dim_action, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, 1),
+        nn.Linear(300, 1),
     )
 
     return net
