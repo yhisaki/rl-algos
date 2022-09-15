@@ -23,6 +23,7 @@ def train_sac():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--replay_start_size", default=10**4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
+    parser.add_argument("--save_model", action="store_false")
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
@@ -78,8 +79,9 @@ def train_sac():
         evaluator=evaluator,
     )
 
-    os.mkdir(os.path.join(wandb.run.dir, "model"))
-    agent.save(os.path.join(wandb.run.dir, "model"))
+    if args.save_model:
+        os.mkdir(os.path.join(wandb.run.dir, "model"))
+        agent.save(os.path.join(wandb.run.dir, "model"))
 
 
 if __name__ == "__main__":
