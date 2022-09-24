@@ -23,7 +23,7 @@ def train_atd3():
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=0)
-    parser.add_argument("--save_model", action="store_false")
+    parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
