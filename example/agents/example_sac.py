@@ -23,11 +23,11 @@ def train_sac():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--replay_start_size", default=10**4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
-    parser.add_argument("--save_model", action="store_false")
+    parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(project=args.project, name="soft_actor_critic", tags=[args.env_id], group=args.group)
+    wandb.init(project=args.project, tags=["sac", args.env_id], group=args.group)
 
     wandb.config.update(args)
 
