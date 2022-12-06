@@ -87,20 +87,6 @@ class ATD3FixedResetCost(TD3):
         self.rate_optimizer = optimizer_class(self.rate.parameters(), **optimizer_kwargs)
         self.rate_target = copy.deepcopy(self.rate).eval().requires_grad_(False)
 
-    def update_if_dataset_is_ready(self):
-        assert self.training
-        self.just_updated = False
-        if len(self.replay_buffer) > self.replay_start_size:
-            self.just_updated = True
-            if self.num_q_update == 0:
-                self.logger.info("Start Update")
-            sampled = self.replay_buffer.sample(self.batch_size)
-            batch = TrainingBatch(**sampled, device=self.device)
-            self._update_critic(batch)
-            if self.num_q_update % self.policy_update_delay == 0:
-                self._update_actor(batch)
-                self._sync_target_network()
-
     def _update_critic(self, batch: TrainingBatch):
         q_loss, rate_loss = self.compute_q_and_rate_loss(batch)
 
