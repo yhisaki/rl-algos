@@ -2,11 +2,15 @@ import argparse
 import logging
 import os
 
+from gym.wrappers import TimeLimit
+from training_average_rl import training_average_rl
+
 import wandb
 from rl_algos.agents.research import ATD3FixedResetCost
-from rl_algos.experiments import Evaluator, Recoder, training
+from rl_algos.experiments import Evaluator, Recoder
 from rl_algos.utils import manual_seed
 from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
+from rl_algos.wrappers.utils import remove_wrapper
 
 
 def train_atd3():
@@ -75,8 +79,9 @@ def train_atd3():
         else None
     )
 
-    agent = training(
+    agent = training_average_rl(
         env=env,
+        env_for_average_reward=remove_wrapper(make_env(args.env_id), TimeLimit),
         agent=agent,
         max_steps=args.max_step,
         logging_interval=args.logging_interval,
