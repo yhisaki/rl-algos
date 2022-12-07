@@ -1,6 +1,6 @@
 import argparse
-import os  # noqa
 import logging
+import os
 
 import wandb
 from rl_algos.agents.research import ATD3FixedResetCost
@@ -84,9 +84,9 @@ def train_atd3():
         evaluator=evaluator,
     )
 
-    # if args.save_model:
-    #     os.mkdir(os.path.join(wandb.run.dir, "model"))
-    #     agent.save(os.path.join(wandb.run.dir, "model"))
+    if args.save_model:
+        os.mkdir(os.path.join(wandb.run.dir, "model"))
+        agent.save(os.path.join(wandb.run.dir, "model"))
 
 
 if __name__ == "__main__":

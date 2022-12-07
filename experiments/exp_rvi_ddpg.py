@@ -1,6 +1,6 @@
 import argparse
-import os
 import logging
+import os
 
 import wandb
 from rl_algos.agents.research import RVI_DDPG
