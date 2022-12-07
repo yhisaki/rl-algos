@@ -18,7 +18,6 @@ def train_atd3():
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--max_step", type=int, default=10**6)
     parser.add_argument("--reset_cost", type=float, default=100)
-    parser.add_argument("--target_terminal_probability", type=float, default=1 / 1000)
     parser.add_argument("--eval_interval", type=int, default=10**4)
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
