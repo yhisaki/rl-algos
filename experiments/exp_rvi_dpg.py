@@ -13,20 +13,20 @@ from rl_algos.wrappers import make_env, register_reset_env, vectorize_env
 def train_rvi_dpg():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", type=str, default="Hopper-v4")
+    parser.add_argument("--project", default="average-reward-rl", type=str)
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num_envs", type=int, default=1)
     parser.add_argument("--max_step", type=int, default=10**6)
+    parser.add_argument("--reset_cost", type=float, default=100.0)
     parser.add_argument("--eval_interval", type=int, default=10**4)
     parser.add_argument("--logging_interval", type=int, default=10**3)
     parser.add_argument("--num_evaluate", type=int, default=10)
-    parser.add_argument("--num_videos", type=int, default=1)
+    parser.add_argument("--num_videos", type=int, default=0)
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(
-        project="average-reward-rl", tags=["rvi_dpg", args.env_id], config=args, group=args.group
-    )
+    wandb.init(project=args.project, tags=["rvi_dpg", args.env_id], config=args, group=args.group)
 
     wandb.config.update(args)
 
@@ -37,7 +37,7 @@ def train_rvi_dpg():
     env = vectorize_env(
         env_id="reset_env/" + args.env_id,
         num_envs=args.num_envs,
-        env_fn=partial(make_env, reset_cost=100.0),
+        env_fn=partial(make_env, reset_cost=args.reset_cost),
     )
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]
