@@ -1,47 +1,39 @@
-import gym
-from gym.core import Env
-from gym.wrappers import TimeLimit
+from typing import Any
 
-from rl_algos.wrappers.utils import remove_wrapper
+import gymnasium
+import numpy as np
+from gymnasium.core import Env
 
 
-class ResetCostWrapper(gym.Wrapper):
-    def __init__(self, env: Env, reset_cost: float = 100.0, terminal_step: int = None):
-        env = remove_wrapper(env, TimeLimit)
+class ResetCostWrapper(gymnasium.Wrapper):
+    def __init__(self, env: Env, reset_cost: float = 100.0):
         super().__init__(env)
-        if terminal_step is None:
-            terminal_step = env.spec.max_episode_steps
-        if self.env.spec is not None:
-            self.env.spec.max_episode_steps = terminal_step
-        self._max_episode_steps = terminal_step
         self._reset_cost = reset_cost
-        self._elapsed_steps = None
         self._reset_next_step = False
 
-    def reset(self, **kwarags):
-        self._elapsed_steps = 0
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[Any, dict[str, Any]]:
         self._reset_next_step = False
-        return self.env.reset(**kwarags)
+        return super().reset(seed=seed, options=options)
 
-    def step(self, action):
-        assert self._elapsed_steps is not None, "Cannot call env.step() before calling reset()"
+    def step(self, action: np.ndarray):
         if self._reset_next_step:
-            observation = self.env.reset()
+            observation, info = self.env.reset()
             reward = -self._reset_cost
-            done = False
-            info = dict(is_reset_step=True)
+            terminated = False
+            truncated = False
+            info.update({"is_terminal_state": True})
             self._reset_next_step = False
         else:
-            observation, reward, done, info = self.env.step(action)
-            if done and (self._elapsed_steps < self._max_episode_steps):
-                done = False
+            observation, reward, terminated, truncated, info = self.env.step(action)
+            if terminated:
+                terminated = False
                 self._reset_next_step = True
 
         if self._reset_next_step:
-            info["is_terminal_state"] = True
+            info.update({"is_terminal_state": True})
         else:
-            info["is_terminal_state"] = False
+            info.update({"is_terminal_state": False})
 
-        self._elapsed_steps += 1
-
-        return observation, reward, (self._elapsed_steps >= self._max_episode_steps), info
+        return observation, reward, False, truncated, info

@@ -1,17 +1,18 @@
 import argparse
 import logging
 import os  # noqa
+from functools import partial
 
 import wandb
 from rl_algos.agents.research import ASAC
 from rl_algos.experiments import Evaluator, Recoder, training
-from rl_algos.utils import manual_seed
-from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
+from rl_algos.utils import logger, manual_seed
+from rl_algos.wrappers import make_env, register_reset_env, vectorize_env
 
 
 def train_asac():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Ant-v4")
+    parser.add_argument("--env_id", type=str, default="Swimmer-v4")
     parser.add_argument("--project", default="average-reward-rl", type=str)
     parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
@@ -31,15 +32,15 @@ def train_asac():
 
     wandb.config.update(args)
 
-    logging.basicConfig(level=args.log_level)
-    logger = logging.getLogger(__name__)
+    register_reset_env()
 
     manual_seed(args.seed)
 
-    def _make_env(*env_args, **env_kwargs):
-        return ResetCostWrapper(make_env(*env_args, **env_kwargs), reset_cost=float("nan"))
-
-    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, env_fn=_make_env)
+    env = vectorize_env(
+        env_id="reset_env/" + args.env_id,
+        num_envs=args.num_envs,
+        env_fn=partial(make_env, reset_cost=float("nan")),
+    )
 
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]

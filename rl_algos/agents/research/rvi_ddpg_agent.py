@@ -53,9 +53,9 @@ class RVI_DDPG(DDPG):
 
     def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy_target, self.q):
-            fq = torch.mean(self.q_target((batch.state, batch.action)))
             next_actions: torch.Tensor = self.policy_target(batch.next_state).sample()
             next_q = self.q_target((batch.next_state, next_actions))
+            fq = torch.mean(next_q)
             q_target = batch.reward - fq + torch.flatten(next_q)
         q_pred = torch.flatten(self.q((batch.state, batch.action)))
         loss = F.mse_loss(q_pred, q_target)

@@ -3,7 +3,7 @@ import logging
 # import multiprocessing as mp
 from typing import List, Optional
 
-from gym import Env
+from gymnasium import Env
 
 
 # TODO implement multiprocessing
@@ -28,15 +28,15 @@ class Evaluator(object):
 
     def evaluate(self, actor) -> List[float]:
         def _evaluate_once(i):
-            state = self.env.reset()
+            state, _ = self.env.reset()
             reward_sum = 0
             step = 0
             while True:
                 action = actor(state)
-                state, reward, done, _ = self.env.step(action=action)
+                state, reward, terminated, truncated, _ = self.env.step(action=action)
                 step += 1
                 reward_sum += reward
-                if done:
+                if terminated or truncated:
                     self.logger.info(
                         f"Evaluate Actor {i+1}/{self.num_evaluate}, "
                         f"Reward Sum: {reward_sum}, Step: {step}"

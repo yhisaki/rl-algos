@@ -3,10 +3,9 @@ import os
 from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import Any, List, Tuple
 
-# import cloudpickle
-# from gym.core import Env
 import torch
 from torch import cuda, nn
+
 from rl_algos.buffers.abstract_replay_buffer import AbstractReplayBuffer
 from rl_algos.utils.statistics import Statistics
 

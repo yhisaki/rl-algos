@@ -2,7 +2,7 @@ import logging
 from statistics import mean, stdev
 from typing import Optional
 
-from gym import Env
+from gymnasium import Env
 
 import wandb
 from rl_algos.agents.agent_base import AgentBase
@@ -48,14 +48,14 @@ def training_average_rl(
 
     interactions = TransitionGenerator(env, actor, max_step=max_steps)
 
-    for steps, states, next_states, actions, rewards, dones, info in interactions:
+    for steps, states, next_states, actions, rewards, terminal, truncated, info in interactions:
         agent.observe(
             states=states,
             next_states=next_states,
             actions=actions,
             rewards=rewards,
-            terminals=is_state_terminal(env, steps, dones, info),
-            resets=dones,
+            terminals=terminal,
+            resets=terminal | truncated,
         )
         with agent.eval_mode():
             # Evaluate

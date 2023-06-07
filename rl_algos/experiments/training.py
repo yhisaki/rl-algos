@@ -2,14 +2,13 @@ import logging
 from statistics import mean, stdev
 from typing import Optional
 
-from gym import Env
+from gymnasium import Env
 
 import wandb
 from rl_algos.agents.agent_base import AgentBase
 from rl_algos.experiments.evaluator import Evaluator
 from rl_algos.experiments.recorder import Recoder
 from rl_algos.experiments.transition_generator import TransitionGenerator
-from rl_algos.utils import is_state_terminal
 
 
 def __add_header_to_dict_key(d: dict, header: str):
@@ -29,14 +28,14 @@ def training(
         return agent.act(state)
 
     interactions = TransitionGenerator(env, actor, max_step=max_steps)
-    for steps, states, next_states, actions, rewards, dones, info in interactions:
+    for steps, states, next_states, actions, rewards, terminated, truncated, info in interactions:
         agent.observe(
             states=states,
             next_states=next_states,
             actions=actions,
             rewards=rewards,
-            terminals=is_state_terminal(env, steps, dones, info),
-            resets=dones,
+            terminals=terminated,
+            resets=terminated,
         )
         with agent.eval_mode():
             # Evaluate

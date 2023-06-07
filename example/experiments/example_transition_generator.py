@@ -1,13 +1,11 @@
-import logging
-
-import gym
-from gym.vector.async_vector_env import AsyncVectorEnv
+import gymnasium
+from gymnasium.vector.async_vector_env import AsyncVectorEnv
 
 from rl_algos.experiments import TransitionGenerator
 
 
 def example_single_env(env_id: str):
-    env = gym.make(env_id)
+    env = gymnasium.make(env_id)
 
     def actor(_):
         return [env.action_space.sample()]
@@ -20,20 +18,20 @@ def example_single_env(env_id: str):
 
 def example_vector_env(env_id: str):
     def _make():
-        return gym.make(env_id)
+        return gymnasium.make(env_id)
 
-    env = AsyncVectorEnv([_make for _ in range(3)])
+    env = AsyncVectorEnv([_make for _ in range(4)])
     print(env.observation_space)
 
     def actor(_):
         return env.action_space.sample()
 
-    interactions = TransitionGenerator(env, actor, max_episode=2)
+    interactions = TransitionGenerator(env, actor, max_episode=3)
 
     for _ in interactions:
         pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    example_single_env("Humanoid-v3")
+    # example_single_env("Humanoid-v4")
+    example_vector_env("Humanoid-v4")

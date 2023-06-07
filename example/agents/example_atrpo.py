@@ -5,13 +5,13 @@ import wandb
 from rl_algos.agents import ATRPO
 from rl_algos.experiments import Evaluator, Recoder, training
 from rl_algos.modules import ZScoreFilter
-from rl_algos.utils import manual_seed
-from rl_algos.wrappers import ResetCostWrapper, make_env, vectorize_env
+from rl_algos.utils import logger, manual_seed
+from rl_algos.wrappers import make_env, register_reset_env, vectorize_env
 
 
 def train_atrpo():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_id", type=str, default="Swimmer-v4")
+    parser.add_argument("--env_id", type=str, default="Hopper-v4")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--num_envs", type=int, default=5)
     parser.add_argument("--update_interval", type=int, default=None)
@@ -30,15 +30,11 @@ def train_atrpo():
 
     wandb.init(project="trpo", tags=["atrpo", args.env_id], config=args)
 
-    logging.basicConfig(level=args.log_level)
-    logger = logging.getLogger(__name__)
+    register_reset_env()
 
     manual_seed(args.seed)
 
-    def _make_env(*args, **kwargs):
-        return ResetCostWrapper(make_env(*args, **kwargs))
-
-    env = vectorize_env(env_id=args.env_id, num_envs=args.num_envs, env_fn=_make_env)
+    env = vectorize_env(env_id="reset_env/" + args.env_id, num_envs=args.num_envs)
 
     dim_state = env.observation_space.shape[-1]
     dim_action = env.action_space.shape[-1]
@@ -72,7 +68,7 @@ def train_atrpo():
 
     recoder = (
         Recoder(
-            env=make_env(args.env_id),
+            env=make_env(args.env_id, render_mode="rgb_array"),
             record_interval=args.max_step // args.num_videos,
         )
         if args.num_videos > 0
