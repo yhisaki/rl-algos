@@ -12,7 +12,7 @@ from rl_algos.buffers import ReplayBuffer, TrainingBatch
 from rl_algos.explorers import ExplorerBase, GaussianExplorer
 from rl_algos.modules import ConcatStateAction, evaluating
 from rl_algos.modules.distributions import DeterministicHead
-from rl_algos.utils import synchronize_parameters
+from rl_algos.utils import logger, synchronize_parameters
 from rl_algos.utils.statistics import Statistics
 
 
@@ -77,7 +77,7 @@ class RVIDPGAgent(AttributeSavingMixin, AgentBase):
         calc_stats: bool = True,
         optimizer_class: Type[Optimizer] = Adam,
         optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
-        logger: logging.Logger = logging.getLogger(__name__),
+        logger: logging.Logger = logger.getChild("RVIDPGAgent"),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
         super().__init__()

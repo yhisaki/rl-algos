@@ -1,9 +1,8 @@
-import logging
-
-# import multiprocessing as mp
 from typing import List, Optional
 
 from gymnasium import Env
+
+from rl_algos.utils import logger
 
 
 # TODO implement multiprocessing
@@ -13,7 +12,7 @@ class Evaluator(object):
         env: Env,
         num_evaluate: int,
         eval_interval: int = 5e4,
-        logger=logging.getLogger(__name__),
+        logger=logger.getChild("Evaluator"),
     ) -> None:
         super().__init__()
         # ctx = mp.get_context()
