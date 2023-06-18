@@ -6,6 +6,8 @@ import numpy as np
 from gymnasium import Env
 from gymnasium.wrappers.pixel_observation import PixelObservationWrapper
 
+from rl_algos.utils import logger
+
 
 def record_videos_from_actor(
     env: gymnasium.Env,
@@ -53,7 +55,7 @@ class Recoder(object):
         env: Env,
         record_interval: int = 10e4,
         use_pyvirtualdisplay: bool = False,
-        logger: logging.Logger = logging.getLogger(__name__),
+        logger: logging.Logger = logger,
     ) -> None:
         super().__init__()
         self.env = env

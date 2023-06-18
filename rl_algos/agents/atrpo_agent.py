@@ -60,7 +60,7 @@ class ATRPO(TRPO):
         value_stats_window=None,
         entropy_stats_window=None,
         kl_stats_window=None,
-        logger: logging.Logger = logging.getLogger(__name__),
+        logger: logging.Logger = logger,
     ) -> None:
         super().__init__(
             dim_state,

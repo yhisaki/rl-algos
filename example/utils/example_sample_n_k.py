@@ -6,7 +6,6 @@ import numpy as np
 from rl_algos.utils.sample_n_k import sample_n_k
 
 if __name__ == "__main__":
-
     N = 10000000
     K = 10
 

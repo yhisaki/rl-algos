@@ -1,11 +1,10 @@
 import argparse
-import logging
 
 import wandb
 from rl_algos.agents import TRPO
 from rl_algos.experiments import Evaluator, Recoder, training
 from rl_algos.modules import ZScoreFilter
-from rl_algos.utils import manual_seed
+from rl_algos.utils import logger, manual_seed
 from rl_algos.wrappers import make_env, vectorize_env
 
 
@@ -26,13 +25,9 @@ def train_trpo():
     parser.add_argument("--eval_interval", type=int, default=5 * 10**4)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
-    parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
     wandb.init(project="trpo", tags=["trpo", args.env_id], config=args)
-
-    logging.basicConfig(level=args.log_level)
-    logger = logging.getLogger(__name__)
 
     manual_seed(args.seed)
 

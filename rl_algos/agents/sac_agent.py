@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import Optional, Tuple, Union, Type, Dict, Any
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -13,7 +13,7 @@ from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
 from rl_algos.modules import evaluating, ortho_init
 from rl_algos.modules.distributions import SquashedDiagonalGaussianHead
-from rl_algos.utils import synchronize_parameters
+from rl_algos.utils import logger, synchronize_parameters
 from rl_algos.utils.statistics import Statistics
 
 
@@ -73,7 +73,6 @@ def default_policy_fn(dim_state, dim_action):
 
 
 class SAC(AttributeSavingMixin, AgentBase):
-
     saved_attributes = (
         "q1",
         "q2",
@@ -103,7 +102,7 @@ class SAC(AttributeSavingMixin, AgentBase):
         optimizer_class: Type[Optimizer] = Adam,
         optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
-        logger=logging.getLogger(__name__),
+        logger=logger,
         calc_stats: bool = True,
     ):
         self.logger: logging.Logger = logger

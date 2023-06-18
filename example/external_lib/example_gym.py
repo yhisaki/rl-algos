@@ -1,7 +1,7 @@
 import gym
 
-from rl_algos.wrappers import CastObservationToFloat32, CastRewardToFloat, NormalizeActionSpace
 from rl_algos.utils import manual_seed
+from rl_algos.wrappers import CastObservationToFloat32, CastRewardToFloat, NormalizeActionSpace
 
 if __name__ == "__main__":
     env = gym.make("Swimmer-v4", disable_env_checker=True)

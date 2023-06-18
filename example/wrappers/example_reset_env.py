@@ -1,7 +1,7 @@
 import gymnasium
 
-from rl_algos.wrappers import make_env, register_reset_env
 from rl_algos.experiments import TransitionGenerator
+from rl_algos.wrappers import make_env, register_reset_env
 
 
 def example_simple_reset_env():

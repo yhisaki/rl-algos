@@ -1,5 +1,4 @@
 import argparse
-import logging
 
 import wandb
 from rl_algos.agents import ATRPO
@@ -25,7 +24,6 @@ def train_atrpo():
     parser.add_argument("--eval_interval", type=int, default=5 * 10**4)
     parser.add_argument("--num_evaluate", type=int, default=10)
     parser.add_argument("--num_videos", type=int, default=3)
-    parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
     wandb.init(project="trpo", tags=["atrpo", args.env_id], config=args)

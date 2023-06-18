@@ -6,7 +6,7 @@ import numpy as np
 from gymnasium import Env
 from gymnasium.vector import SyncVectorEnv, VectorEnv
 
-from rl_algos.utils import clear_if_maxlen_is_none, mean_or_nan, logger
+from rl_algos.utils import clear_if_maxlen_is_none, logger, mean_or_nan
 
 
 class TransitionGenerator(Iterator):
@@ -157,13 +157,11 @@ class TransitionGenerator(Iterator):
                 self.reward_sum_record.append(episode_reward)
                 self.step_record.append(episode_step)
                 self.logger.info(
-                    msg=f"""
-                    env_idx={env_idx},
-                    episode_step = {episode_step},
-                    total_step = {total_step},
-                    reward = {episode_reward},
-                    step = {episode_step}
-                    """
+                    msg=f"env_idx={env_idx},"
+                    f"episode_step = {episode_step},"
+                    f"total_step = {total_step},"
+                    f"reward = {episode_reward},"
+                    f"step = {episode_step}"
                 )
                 return final_observation
             else:

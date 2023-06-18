@@ -1,11 +1,10 @@
 import argparse
-import logging
 import os
 
 import wandb
 from rl_algos.agents import SAC
 from rl_algos.experiments import Evaluator, Recoder, training
-from rl_algos.utils import manual_seed
+from rl_algos.utils import logger, manual_seed
 from rl_algos.wrappers import make_env, vectorize_env
 
 
@@ -24,15 +23,11 @@ def train_sac():
     parser.add_argument("--replay_start_size", default=10**4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
     parser.add_argument("--save_model", action="store_true")
-    parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
     wandb.init(project=args.project, tags=["sac", args.env_id], group=args.group)
 
     wandb.config.update(args)
-
-    logging.basicConfig(level=args.log_level)
-    logger = logging.getLogger(__name__)
 
     # fix seed
     manual_seed(args.seed)

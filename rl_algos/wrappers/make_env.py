@@ -1,10 +1,10 @@
 from functools import partial
 
 import gymnasium
-from gymnasium.vector.sync_vector_env import SyncVectorEnv
-from gymnasium.vector.async_vector_env import AsyncVectorEnv
-from gymnasium.vector.vector_env import VectorEnv
 import numpy as np
+from gymnasium.vector.async_vector_env import AsyncVectorEnv
+from gymnasium.vector.sync_vector_env import SyncVectorEnv
+from gymnasium.vector.vector_env import VectorEnv
 
 from rl_algos.wrappers.cast_observation_reward import CastObservationToFloat32, CastRewardToFloat
 from rl_algos.wrappers.normalize_action_space import NormalizeActionSpace

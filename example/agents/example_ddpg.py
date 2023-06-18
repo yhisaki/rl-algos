@@ -1,10 +1,9 @@
 import argparse
-import logging
 
 import wandb
 from rl_algos.agents import DDPG
 from rl_algos.experiments import Evaluator, Recoder, training
-from rl_algos.utils import manual_seed
+from rl_algos.utils import logger, manual_seed
 from rl_algos.wrappers import make_env, vectorize_env
 
 
@@ -20,15 +19,11 @@ def train_ddpg():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--replay_start_size", default=10**4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
-    parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
     wandb.init(project="rl_algos_example", name="ddpg", tags=[args.env_id])
 
     wandb.config.update(args)
-
-    logging.basicConfig(level=args.log_level)
-    logger = logging.getLogger(__name__)
 
     # fix seed
     manual_seed(args.seed)
