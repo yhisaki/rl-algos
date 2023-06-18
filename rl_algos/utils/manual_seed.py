@@ -1,6 +1,6 @@
 import random
 from typing import Optional
-import gym
+import gymnasium
 
 import numpy as np
 import torch
@@ -19,4 +19,4 @@ def manual_seed(
     np.random.seed(seed if np_seed is None else np_seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    gym.Env._np_random, _ = gym.utils.seeding.np_random(seed)
+    gymnasium.Env._np_random, _ = gymnasium.utils.seeding.np_random(seed)

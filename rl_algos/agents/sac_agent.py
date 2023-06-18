@@ -1,7 +1,6 @@
 import copy
-import itertools
 import logging
-from typing import Optional, Tuple, Type, Union
+from typing import Optional, Tuple, Union, Type, Dict, Any
 
 import numpy as np
 import torch
@@ -13,7 +12,7 @@ import rl_algos
 from rl_algos.agents.agent_base import AgentBase, AttributeSavingMixin
 from rl_algos.buffers import ReplayBuffer, TrainingBatch
 from rl_algos.modules import evaluating, ortho_init
-from rl_algos.modules.distributions import SquashedDiagonalGaussianHead, StochasticHeadBase
+from rl_algos.modules.distributions import SquashedDiagonalGaussianHead
 from rl_algos.utils import synchronize_parameters
 from rl_algos.utils.statistics import Statistics
 
@@ -42,8 +41,13 @@ class TemperatureHolder(nn.Module):
         )
 
 
-def default_q(dim_state, dim_action):
-    return nn.Sequential(
+def default_temparature_fn():
+    temparature = TemperatureHolder()
+    return temparature
+
+
+def default_q_fn(dim_state, dim_action):
+    net = nn.Sequential(
         rl_algos.modules.ConcatStateAction(),
         ortho_init(nn.Linear(dim_state + dim_action, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
@@ -52,9 +56,11 @@ def default_q(dim_state, dim_action):
         ortho_init(nn.Linear(256, 1), gain=np.sqrt(1.0 / 3.0)),
     )
 
+    return net
 
-def default_policy(dim_state, dim_action):
-    return nn.Sequential(
+
+def default_policy_fn(dim_state, dim_action):
+    net = nn.Sequential(
         ortho_init(nn.Linear(dim_state, 256), gain=np.sqrt(1.0 / 3.0)),
         nn.ReLU(),
         ortho_init(nn.Linear(256, 256), gain=np.sqrt(1.0 / 3.0)),
@@ -62,6 +68,8 @@ def default_policy(dim_state, dim_action):
         ortho_init(nn.Linear(256, dim_action * 2), gain=np.sqrt(1.0 / 3.0)),
         SquashedDiagonalGaussianHead(),
     )
+
+    return net
 
 
 class SAC(AttributeSavingMixin, AgentBase):
@@ -71,32 +79,29 @@ class SAC(AttributeSavingMixin, AgentBase):
         "q2",
         "q1_target",
         "q2_target",
+        "q1_optimizer",
+        "q2_optimizer",
         "policy_optimizer",
-        "q_optimizer",
         "temperature_holder",
         "temperature_optimizer",
+        "replay_buffer",
     )
 
     def __init__(
         self,
         dim_state: int,
         dim_action: int,
-        q1: Optional[nn.Module] = None,
-        q2: Optional[nn.Module] = None,
-        q_optimizer_class: Type[Optimizer] = Adam,
-        q_optimizer_kwargs: dict = {"lr": 3e-4},
-        policy: Optional[nn.Module] = None,
-        policy_optimizer_class: Type[Optimizer] = Adam,
-        policy_optimizer_kwargs: dict = {"lr": 3e-4},
-        temperature_holder: nn.Module = TemperatureHolder(),
-        temperature_optimizer_class: Type[Optimizer] = Adam,
-        temperature_optimizer_kwargs: dict = {"lr": 3e-4},
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
+        temperature_fn=default_temparature_fn,
         target_entropy: Optional[float] = None,
         replay_buffer: ReplayBuffer = ReplayBuffer(1e6),
         batch_size: int = 256,
         gamma: float = 0.99,
-        tau_q: float = 5e-3,
+        tau: float = 5e-3,
         replay_start_size: int = 1e4,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 3e-4},
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
         logger=logging.getLogger(__name__),
         calc_stats: bool = True,
@@ -110,39 +115,26 @@ class SAC(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
 
         # configure Q
-        self.q1 = (
-            default_q(dim_state, dim_action).to(self.device) if q1 is None else q1.to(self.device)
-        )
-        self.q2 = (
-            default_q(dim_state, dim_action).to(self.device) if q2 is None else q2.to(self.device)
-        )
+
+        self.q1 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q1_optimizer = optimizer_class(self.q1.parameters(), **optimizer_kwargs)
+
+        self.q2 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q2_optimizer = optimizer_class(self.q2.parameters(), **optimizer_kwargs)
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
-        self.q2_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
-
-        self.q_optimizer = q_optimizer_class(
-            itertools.chain(self.q1.parameters(), self.q2.parameters()), **q_optimizer_kwargs
-        )
+        self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
 
         # configure Policy
-        self.policy = (
-            default_policy(dim_state, dim_action).to(self.device)
-            if policy is None
-            else policy.to(self.device)
-        )
-        self.policy_head: StochasticHeadBase = self.policy[-1]
+        self.policy = policy_fn(dim_state, dim_action).to(self.device)
+        self.policy_optimizer = optimizer_class(self.policy.parameters(), **optimizer_kwargs)
 
-        if not isinstance(self.policy_head, StochasticHeadBase):
-            self.logger.warning("policy head is not stochasitic!!")
-
-        self.policy_optimizer = policy_optimizer_class(
-            self.policy.parameters(), **policy_optimizer_kwargs
-        )
+        self.policy_head = self.policy[-1]
 
         # configure Temperature
-        self.temperature_holder = temperature_holder.to(self.device)
-        self.temperature_optimizer = temperature_optimizer_class(
-            self.temperature_holder.parameters(), **temperature_optimizer_kwargs
+        self.temperature_holder = temperature_fn().to(self.device)
+        self.temperature_optimizer = optimizer_class(
+            self.temperature_holder.parameters(), **optimizer_kwargs
         )
 
         if target_entropy is None:
@@ -156,11 +148,9 @@ class SAC(AttributeSavingMixin, AgentBase):
 
         # discount factor
         self.gamma = gamma
-        if not ((0.0 < self.gamma) & (self.gamma < 1.0)):
-            raise ValueError("The discount rate must be greater than zero and less than one.")
 
         # soft update parameter
-        self.tau_q = tau_q
+        self.tau = tau
 
         self.replay_start_size = replay_start_size
 
@@ -210,9 +200,11 @@ class SAC(AttributeSavingMixin, AgentBase):
     def _update_q(self, batch: TrainingBatch):
         q_loss = self.compute_q_loss(batch)
 
-        self.q_optimizer.zero_grad()
+        self.q1_optimizer.zero_grad()
+        self.q2_optimizer.zero_grad()
         q_loss.backward()
-        self.q_optimizer.step()
+        self.q1_optimizer.step()
+        self.q2_optimizer.step()
 
     def _update_policy_and_temperature(self, batch):
         self.policy_loss, self.temperature_loss = self.compute_policy_and_temperature_loss(batch)
@@ -224,21 +216,6 @@ class SAC(AttributeSavingMixin, AgentBase):
         self.temperature_optimizer.zero_grad()
         self.temperature_loss.backward()
         self.temperature_optimizer.step()
-
-    def _sync_target_network(self):
-        """Synchronize target network with current network."""
-        synchronize_parameters(
-            src=self.q1,
-            dst=self.q1_target,
-            method="soft",
-            tau=self.tau_q,
-        )
-        synchronize_parameters(
-            src=self.q2,
-            dst=self.q2_target,
-            method="soft",
-            tau=self.tau_q,
-        )
 
     def compute_q_loss(self, batch: TrainingBatch):
         with torch.no_grad(), evaluating(self.policy, self.q1_target, self.q2_target):
@@ -283,3 +260,18 @@ class SAC(AttributeSavingMixin, AgentBase):
             self.stats("temperature_loss").append(float(temperature_loss))
             self.stats("entropy").extend(-log_prob.detach().cpu().numpy())
         return policy_loss, temperature_loss
+
+    def _sync_target_network(self):
+        """Synchronize target network with current network."""
+        synchronize_parameters(
+            src=self.q1,
+            dst=self.q1_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q2,
+            dst=self.q2_target,
+            method="soft",
+            tau=self.tau,
+        )

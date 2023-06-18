@@ -1,13 +1,13 @@
 from typing import Any
 
-import gym
+import gymnasium
 import numpy as np
-from gym.spaces.box import Box
+from gymnasium.spaces.box import Box
 
 # refer to https://github.com/pfnet/pfrl/blob/master/pfrl/wrappers/cast_observation.py
 
 
-class CastObservation(gym.ObservationWrapper):
+class CastObservation(gymnasium.ObservationWrapper):
     """Cast observations to a given type.
 
     Args:
@@ -48,7 +48,7 @@ class CastObservationToFloat32(CastObservation):
         super().__init__(env, np.float32)
 
 
-class CastRewardToFloat(gym.RewardWrapper):
+class CastRewardToFloat(gymnasium.RewardWrapper):
     def __init__(self, env):
         super().__init__(env)
 

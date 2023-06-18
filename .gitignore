@@ -11,3 +11,5 @@ wandb/
 .venv/
 .vscode/
 poetry.lock
+out/
+*personal*/

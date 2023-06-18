@@ -16,8 +16,8 @@ authors = ["Y.Hisaki <yhisaki31@gmail.com>"]
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
 torch = ">=1.11.0"
-gym = { extras = ["mujoco"], version = ">=0.24.1" }
 numpy = "*"
+gymnasium = {extras = ["mujoco"], version = "^0.28.1"}
 
 
 [tool.poetry.dev-dependencies]

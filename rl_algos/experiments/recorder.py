@@ -1,14 +1,14 @@
 import logging
 from typing import List
 
-import gym
+import gymnasium
 import numpy as np
-from gym import Env
-from gym.wrappers.pixel_observation import PixelObservationWrapper
+from gymnasium import Env
+from gymnasium.wrappers.pixel_observation import PixelObservationWrapper
 
 
 def record_videos_from_actor(
-    env: gym.Env,
+    env: gymnasium.Env,
     actor,
     num_videos=1,
     frame_skip=1,
@@ -23,18 +23,18 @@ def record_videos_from_actor(
 
         for i in range(num_videos):
             video = []
-            state_and_pixels = env.reset()
+            state_and_pixels, _ = env.reset()
             video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
             reward_sum = 0
             step = 0
             while True:
                 action = actor(state_and_pixels["state"])
-                state_and_pixels, reward, done, info = env.step(action)
+                state_and_pixels, reward, terminated, truncated, info = env.step(action)
                 if step % frame_skip == 0:
                     video.append(state_and_pixels["pixels"].transpose(2, 0, 1))
                 reward_sum += reward
                 step += 1
-                if done:
+                if terminated or truncated:
                     break
 
             logger.info(

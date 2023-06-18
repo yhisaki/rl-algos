@@ -1,17 +1,17 @@
-import gym
-from gym.vector.async_vector_env import AsyncVectorEnv
+import gymnasium
+from gymnasium.vector.async_vector_env import AsyncVectorEnv
 
 
 def make_env(env_name):
     def _make():
-        _env = gym.make(env_name)
+        _env = gymnasium.make(env_name)
         return _env
 
     return _make
 
 
 def main():
-    env_id = "Ant-v3"
+    env_id = "Ant-v4"
     num_envs = 5
     vec_env = AsyncVectorEnv([make_env(env_id) for i in range(num_envs)])
 

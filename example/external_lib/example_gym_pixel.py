@@ -1,9 +1,9 @@
 import contextlib
 
-import gym
-from gym.vector.async_vector_env import AsyncVectorEnv
-from gym.vector.sync_vector_env import SyncVectorEnv
-from gym.wrappers.pixel_observation import PixelObservationWrapper
+import gymnasium
+from gymnasium.vector.async_vector_env import AsyncVectorEnv
+from gymnasium.vector.sync_vector_env import SyncVectorEnv
+from gymnasium.wrappers.pixel_observation import PixelObservationWrapper
 
 
 def make_env(
@@ -11,7 +11,7 @@ def make_env(
     num_envs: int = 1,
 ):
     def _make():
-        _env = gym.make(env_id)
+        _env = gymnasium.make(env_id, render_mode="rgb_array")
         return _env
 
     if num_envs == 1:
@@ -28,7 +28,7 @@ def make_env(
 
 
 @contextlib.contextmanager
-def gym_wrapping(env, wrapper):
+def gymnasium_wrapping(env, wrapper):
     try:
         env = wrapper(env)
     finally:
@@ -37,14 +37,14 @@ def gym_wrapping(env, wrapper):
 
 def main():
     # wandb.init(project="example_rl_algos")
-    env = gym.make("Hopper-v3")
+    env = gymnasium.make("Hopper-v4", render_mode='rgb_array')
     env = PixelObservationWrapper(env, pixels_only=False)
     env.reset()
     pixels = []
     while True:
-        (state, reward, done, info) = env.step(env.action_space.sample())
+        (state, reward, terminated, truncated, info) = env.step(env.action_space.sample())
         pixels.append(state["pixels"].transpose(2, 0, 1))
-        if done:
+        if terminated or truncated:
             # wandb.log({"video": wandb.Video(np.array(pixels), fps=60)})
             break
 

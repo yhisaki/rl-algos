@@ -1,6 +1,6 @@
 import logging
 
-import gym
+import gymnasium
 
 import wandb
 from rl_algos.experiments import Recoder
@@ -9,7 +9,7 @@ from rl_algos.experiments import Recoder
 def main(env_id: str):
     logging.basicConfig(level=logging.INFO)
     wandb.init(project="example_rl_algos")
-    env = gym.make(env_id)
+    env = gymnasium.make(env_id, render_mode="rgb_array")
 
     def actor(state):
         return env.action_space.sample()
@@ -20,4 +20,4 @@ def main(env_id: str):
 
 
 if __name__ == "__main__":
-    main("Swimmer-v3")
+    main("Swimmer-v4")

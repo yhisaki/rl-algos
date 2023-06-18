@@ -1,7 +1,6 @@
 import copy
-import itertools
 import logging
-from typing import Optional, Type, Union
+from typing import Any, Dict, Type, Union
 
 import torch
 import torch.nn.functional as F
@@ -23,27 +22,31 @@ def default_target_policy_smoothing_func(batch_action):
     return torch.clamp(batch_action + noise, -1, 1)
 
 
-def default_policy(dim_state, dim_action):
-    return nn.Sequential(
-        nn.Linear(dim_state, 256),
+def default_policy_fn(dim_state, dim_action):
+    net = nn.Sequential(
+        nn.Linear(dim_state, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, dim_action),
+        nn.Linear(300, dim_action),
         nn.Tanh(),
         DeterministicHead(),
     )
 
+    return net
 
-def default_q(dim_state, dim_action):
-    return nn.Sequential(
+
+def default_q_fn(dim_state, dim_action):
+    net = nn.Sequential(
         ConcatStateAction(),
-        nn.Linear(dim_state + dim_action, 256),
+        nn.Linear(dim_state + dim_action, 400),
         nn.ReLU(),
-        nn.Linear(256, 256),
+        nn.Linear(400, 300),
         nn.ReLU(),
-        nn.Linear(256, 1),
+        nn.Linear(300, 1),
     )
+
+    return net
 
 
 class TD3(AttributeSavingMixin, AgentBase):
@@ -52,23 +55,20 @@ class TD3(AttributeSavingMixin, AgentBase):
         "q2",
         "q1_target",
         "q2_target",
-        "q_optimizer",
+        "q1_optimizer",
+        "q2_optimizer",
         "policy",
         "policy_target",
         "policy_optimizer",
+        "replay_buffer",
     )
 
     def __init__(
         self,
         dim_state: int,
         dim_action: int,
-        q1: Optional[nn.Module] = None,
-        q2: Optional[nn.Module] = None,
-        q_optimizer_class: Type[Optimizer] = Adam,
-        q_optimizer_kwargs: dict = {"lr": 3e-4},
-        policy: Optional[nn.Module] = None,
-        policy_optimizer_class: Type[Optimizer] = Adam,
-        policy_optimizer_kwargs: dict = {"lr": 3e-4},
+        q_fn=default_q_fn,
+        policy_fn=default_policy_fn,
         policy_update_delay: int = 2,
         policy_smoothing_func=default_target_policy_smoothing_func,
         tau: float = 5e-3,
@@ -78,6 +78,8 @@ class TD3(AttributeSavingMixin, AgentBase):
         batch_size: int = 256,
         replay_start_size: int = 25e3,
         calc_stats: bool = True,
+        optimizer_class: Type[Optimizer] = Adam,
+        optimizer_kwargs: Dict[str, Any] = {"lr": 1e-3},
         logger: logging.Logger = logging.getLogger(__name__),
         device: Union[str, torch.device] = torch.device("cuda:0" if cuda.is_available() else "cpu"),
     ) -> None:
@@ -90,33 +92,22 @@ class TD3(AttributeSavingMixin, AgentBase):
         self.dim_action = dim_action
         self.gamma = gamma
 
-        self.policy = (
-            default_policy(dim_state, dim_action).to(self.device)
-            if policy is None
-            else policy.to(self.device)
-        )
-        self.policy_optimizer = policy_optimizer_class(
-            self.policy.parameters(), **policy_optimizer_kwargs
-        )
+        self.policy = policy_fn(self.dim_state, self.dim_action).to(self.device)
+        self.policy_optimizer = optimizer_class(self.policy.parameters(), **optimizer_kwargs)
         self.policy_target = copy.deepcopy(self.policy).eval().requires_grad_(False)
 
         self.policy_update_delay = policy_update_delay
         self.policy_smoothing_func = policy_smoothing_func
 
         # configure Q
-        self.q1 = (
-            default_q(dim_state, dim_action).to(self.device) if q1 is None else q1.to(self.device)
-        )
-        self.q2 = (
-            default_q(dim_state, dim_action).to(self.device) if q2 is None else q2.to(self.device)
-        )
+        self.q1 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q1_optimizer = optimizer_class(self.q1.parameters(), **optimizer_kwargs)
+
+        self.q2 = q_fn(self.dim_state, self.dim_action).to(self.device)
+        self.q2_optimizer = optimizer_class(self.q2.parameters(), **optimizer_kwargs)
 
         self.q1_target = copy.deepcopy(self.q1).eval().requires_grad_(False)
         self.q2_target = copy.deepcopy(self.q2).eval().requires_grad_(False)
-
-        self.q_optimizer = q_optimizer_class(
-            itertools.chain(self.q1.parameters(), self.q2.parameters()), **q_optimizer_kwargs
-        )
 
         self.replay_buffer = replay_buffer
         self.batch_size = batch_size
@@ -131,27 +122,6 @@ class TD3(AttributeSavingMixin, AgentBase):
         self.stats = Statistics() if calc_stats else None
 
         self.logger = logger
-
-    def _sync_target_network(self):
-        """Synchronize target network with current network."""
-        synchronize_parameters(
-            src=self.policy,
-            dst=self.policy_target,
-            method="soft",
-            tau=self.tau,
-        )
-        synchronize_parameters(
-            src=self.q1,
-            dst=self.q1_target,
-            method="soft",
-            tau=self.tau,
-        )
-        synchronize_parameters(
-            src=self.q2,
-            dst=self.q2_target,
-            method="soft",
-            tau=self.tau,
-        )
 
     def observe(self, states, next_states, actions, rewards, terminals, resets) -> None:
         if self.training:
@@ -202,9 +172,11 @@ class TD3(AttributeSavingMixin, AgentBase):
 
     def _update_critic(self, batch: TrainingBatch):
         q_loss = self.compute_q_loss(batch)
-        self.q_optimizer.zero_grad()
+        self.q1_optimizer.zero_grad()
+        self.q2_optimizer.zero_grad()
         q_loss.backward()
-        self.q_optimizer.step()
+        self.q1_optimizer.step()
+        self.q2_optimizer.step()
         self.num_q_update += 1
 
     def _update_actor(self, batch: TrainingBatch):
@@ -248,3 +220,24 @@ class TD3(AttributeSavingMixin, AgentBase):
         if self.stats is not None:
             self.stats("policy_loss").append(float(policy_loss))
         return policy_loss
+
+    def _sync_target_network(self):
+        """Synchronize target network with current network."""
+        synchronize_parameters(
+            src=self.policy,
+            dst=self.policy_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q1,
+            dst=self.q1_target,
+            method="soft",
+            tau=self.tau,
+        )
+        synchronize_parameters(
+            src=self.q2,
+            dst=self.q2_target,
+            method="soft",
+            tau=self.tau,
+        )

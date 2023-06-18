@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Union
 
 import numpy as np
-from gym.core import Env
+from gymnasium.core import Env
 
 _warn_onece_flag = False
 

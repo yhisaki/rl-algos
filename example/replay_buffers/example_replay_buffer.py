@@ -1,20 +1,18 @@
 from rl_algos.buffers import EpisodeBuffer, EpisodicTrainingBatch, ReplayBuffer, TrainingBatch
 from rl_algos.experiments import TransitionGenerator
-from rl_algos.utils import is_state_terminal
 from rl_algos.wrappers import vectorize_env
 
 
 def example_replay_buffer():
-    env = vectorize_env("Swimmer-v3", 1)
+    env = vectorize_env("Swimmer-v4", 1)
 
     def actor(state):
         return env.action_space.sample()
 
     interactions = TransitionGenerator(env, actor, max_step=1000)
 
-    buffer = ReplayBuffer(10 ** 4)
-    for steps, states, next_states, actions, rewards, dones, info in interactions:
-        terminals = is_state_terminal(env, steps, dones)
+    buffer = ReplayBuffer(10**4)
+    for episode_steps,  in interactions:
         for id, (state, next_state, action, reward, terminal, done) in enumerate(
             zip(states, next_states, actions, rewards, terminals, dones)
         ):

@@ -5,10 +5,10 @@ from rl_algos.experiments import Evaluator
 
 
 def main():
-    import gym
+    import gymnasium
 
     logging.basicConfig(level=logging.INFO)
-    env = gym.make("Swimmer-v3")
+    env = gymnasium.make("Swimmer-v4")
 
     def actor(state):
         return env.action_space.sample()

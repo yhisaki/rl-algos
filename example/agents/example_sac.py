@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import wandb
 from rl_algos.agents import SAC
@@ -11,6 +12,8 @@ from rl_algos.wrappers import make_env, vectorize_env
 def train_sac():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_id", default="HalfCheetah-v4", type=str)
+    parser.add_argument("--project", default="rl_algos_example", type=str)
+    parser.add_argument("--group", type=str, default=None)
     parser.add_argument("--seed", default=None, type=int)
     parser.add_argument("--num_envs", default=1, type=int)
     parser.add_argument("--max_step", default=10**6, type=int)
@@ -20,10 +23,11 @@ def train_sac():
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--replay_start_size", default=10**4, type=int)
     parser.add_argument("--num_videos", type=int, default=3)
+    parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     args = parser.parse_args()
 
-    wandb.init(project="rl_algos_example", name="soft_actor_critic", tags=[args.env_id])
+    wandb.init(project=args.project, tags=["sac", args.env_id], group=args.group)
 
     wandb.config.update(args)
 
@@ -50,7 +54,6 @@ def train_sac():
         dim_state=dim_state,
         dim_action=dim_action,
         gamma=args.gamma,
-        replay_start_size=args.replay_start_size,
     )
 
     evaluator = Evaluator(
@@ -75,6 +78,10 @@ def train_sac():
         recorder=recoder,
         evaluator=evaluator,
     )
+
+    if args.save_model:
+        os.mkdir(os.path.join(wandb.run.dir, "model"))
+        agent.save(os.path.join(wandb.run.dir, "model"))
 
 
 if __name__ == "__main__":
